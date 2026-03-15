@@ -1,0 +1,12 @@
+apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketAccess
+metadata:
+  name: my-bucket-access
+  namespace: default
+spec:
+  bucketClaimName: my-bucket
+  # Use the BucketAccessClass name from your Helm release.
+  # Default: <release-name>-versitygw-cosi-driver
+  bucketAccessClassName: versitygw-cosi-driver
+  credentialsSecretName: my-bucket-credentials
+  protocol: s3

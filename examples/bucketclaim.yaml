@@ -1,0 +1,11 @@
+apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketClaim
+metadata:
+  name: my-bucket
+  namespace: default
+spec:
+  # Use the BucketClass name from your Helm release.
+  # Default: <release-name>-versitygw-cosi-driver
+  bucketClassName: versitygw-cosi-driver
+  protocols:
+    - s3
