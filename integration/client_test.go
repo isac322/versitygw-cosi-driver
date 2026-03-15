@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,7 @@ func TestCreateUserAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.CreateUser(ctx, "dupuser", "secret12345678", "user")
-	require.True(t, errors.Is(err, auth.ErrUserExists), "expected ErrUserExists, got: %v", err)
+	require.ErrorIs(t, err, auth.ErrUserExists, "expected ErrUserExists, got: %v", err)
 }
 
 func TestDeleteUser(t *testing.T) {

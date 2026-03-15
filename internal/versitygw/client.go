@@ -1,3 +1,4 @@
+// Package versitygw provides a client for the versitygw S3 and Admin APIs.
 package versitygw
 
 import (
@@ -151,7 +152,7 @@ func (c *Client) PutBucketPolicy(ctx context.Context, bucket, principal string) 
 				Principal: map[string][]string{"AWS": {principal}},
 				Action:    "s3:*",
 				Resource: []string{
-					fmt.Sprintf("arn:aws:s3:::%s", bucket),
+					"arn:aws:s3:::" + bucket,
 					fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
 				},
 			},
@@ -329,7 +330,11 @@ func (c *Client) adminRequest(ctx context.Context, path string, queryParams map[
 		return nil, fmt.Errorf("sign request: %w", err)
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("execute request: %w", err)
+	}
+	return resp, nil
 }
 
 // parseAdminError reads an XML error response from the Admin API.

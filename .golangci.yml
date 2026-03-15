@@ -1,0 +1,98 @@
+version: "2"
+
+run:
+  go: "1.26"
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    # Error handling
+    - errorlint       # proper error wrapping/comparison checks
+    - wrapcheck       # enforce wrapping errors from external packages
+    - errchkjson      # JSON encoding type checks
+
+    # Bug detection
+    - bodyclose       # HTTP response body close check
+    - noctx           # enforce context usage in HTTP requests
+    - exhaustive      # enum switch exhaustiveness check
+    - nilerr          # detect nil return after err != nil check
+    - fatcontext      # detect nested context in loops
+    - durationcheck   # prevent duration multiplication mistakes
+    - forcetypeassert # detect unchecked type assertions
+    - nosprintfhostport # detect host:port formatting misuse
+
+    # Style & quality
+    - revive          # golint replacement
+    - gocritic        # high signal-to-noise ratio checks
+    - unparam         # unused function parameters
+    - unconvert       # unnecessary type conversions
+    - wastedassign    # assignments that are never read
+    - predeclared     # predeclared identifier shadowing
+    - mirror          # bytes/strings canonical form
+    - usestdlibvars   # encourage stdlib constants
+    - reassign        # detect package-level variable reassignment
+    - misspell        # English typo detection
+    - dupword         # duplicate words in comments
+    - perfsprint      # replace fmt.Sprintf with faster alternatives
+    - recvcheck       # receiver type consistency
+    - nakedret        # prevent naked returns
+    - whitespace      # unnecessary blank lines at function start/end
+    - gocheckcompilerdirectives  # go directive validation
+
+    # Modern Go
+    - modernize       # suggest modern Go language/library features
+    - copyloopvar     # detect loop variable copies (Go 1.22+)
+    - intrange        # suggest integer range usage (Go 1.22+)
+    - usetesting      # suggest testing package alternatives
+    - exptostd        # prefer stdlib over x/exp
+
+    # Performance
+    - prealloc        # suggest slice preallocation
+
+    # Logging
+    - loggercheck     # check logger key-value pairs (klog, etc.)
+
+    # Test quality
+    - thelper         # check t.Helper() calls in test helpers
+    - tparallel       # detect missing t.Parallel()
+    - testifylint     # testify usage patterns
+
+  settings:
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+  exclusions:
+    generated: lax
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: "integration/"
+        linters:
+          - wrapcheck
+          - noctx
+      - path: "_test\\.go$"
+        linters:
+          - wrapcheck
+      - path: "cmd/"
+        linters:
+          - wrapcheck
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/isac322/versitygw-cosi-driver

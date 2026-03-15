@@ -168,7 +168,7 @@ func TestObjectLargeFile(t *testing.T) {
 	require.NoError(t, err)
 	body, _ := io.ReadAll(out.Body)
 	out.Body.Close()
-	require.Equal(t, len(largeData), len(body))
+	require.Len(t, body, len(largeData))
 }
 
 func TestObjectListAfterCRUD(t *testing.T) {

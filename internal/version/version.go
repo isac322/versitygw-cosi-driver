@@ -1,9 +1,11 @@
+// Package version provides build version information.
 package version
 
 import (
 	"runtime/debug"
 )
 
+// Info holds version metadata embedded at build time.
 type Info struct {
 	Version    string
 	GoVersion  string
@@ -12,6 +14,7 @@ type Info struct {
 	Modified   bool
 }
 
+// Get returns the current build version information.
 func Get() Info {
 	info := Info{
 		Version:   "(unknown)",

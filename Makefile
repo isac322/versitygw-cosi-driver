@@ -1,4 +1,4 @@
-.PHONY: build test integration-test docker-build clean
+.PHONY: build test integration-test docker-build clean lint lint-fix
 
 BINARY  := versitygw-cosi-driver
 IMAGE   := versitygw-cosi-driver:latest
@@ -17,3 +17,9 @@ docker-build:
 
 clean:
 	rm -rf bin/
+
+lint:
+	golangci-lint run ./...
+
+lint-fix:
+	golangci-lint run --fix ./...

@@ -32,6 +32,7 @@ func NewProvisionerServer(client *versitygw.Client, s3Endpoint, region string) *
 	}
 }
 
+// DriverCreateBucket creates a new bucket on versitygw.
 func (s *ProvisionerServer) DriverCreateBucket(ctx context.Context, req *cosi.DriverCreateBucketRequest) (*cosi.DriverCreateBucketResponse, error) {
 	klog.V(4).InfoS("DriverCreateBucket", "name", req.GetName())
 
@@ -44,6 +45,7 @@ func (s *ProvisionerServer) DriverCreateBucket(ctx context.Context, req *cosi.Dr
 	}, nil
 }
 
+// DriverDeleteBucket deletes a bucket from versitygw.
 func (s *ProvisionerServer) DriverDeleteBucket(ctx context.Context, req *cosi.DriverDeleteBucketRequest) (*cosi.DriverDeleteBucketResponse, error) {
 	klog.V(4).InfoS("DriverDeleteBucket", "bucketId", req.GetBucketId())
 
@@ -54,11 +56,12 @@ func (s *ProvisionerServer) DriverDeleteBucket(ctx context.Context, req *cosi.Dr
 	return &cosi.DriverDeleteBucketResponse{}, nil
 }
 
+// DriverGrantBucketAccess creates a user and grants it access to the bucket.
 func (s *ProvisionerServer) DriverGrantBucketAccess(ctx context.Context, req *cosi.DriverGrantBucketAccessRequest) (*cosi.DriverGrantBucketAccessResponse, error) {
 	bucketID := req.GetBucketId()
 	klog.V(4).InfoS("DriverGrantBucketAccess", "bucketId", bucketID, "name", req.GetName())
 
-	accountName := fmt.Sprintf("ba-%s", uuid.New().String()[:8])
+	accountName := "ba-" + uuid.New().String()[:8]
 	secret, err := generateSecretKey()
 	if err != nil {
 		return nil, fmt.Errorf("generate secret key: %w", err)
@@ -92,6 +95,7 @@ func (s *ProvisionerServer) DriverGrantBucketAccess(ctx context.Context, req *co
 	}, nil
 }
 
+// DriverRevokeBucketAccess removes the bucket policy and deletes the user.
 func (s *ProvisionerServer) DriverRevokeBucketAccess(ctx context.Context, req *cosi.DriverRevokeBucketAccessRequest) (*cosi.DriverRevokeBucketAccessResponse, error) {
 	bucketID := req.GetBucketId()
 	accountID := req.GetAccountId()
@@ -113,7 +117,7 @@ func (s *ProvisionerServer) DriverRevokeBucketAccess(ctx context.Context, req *c
 func generateSecretKey() (string, error) {
 	b := make([]byte, 20)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("read random bytes: %w", err)
 	}
 	return hex.EncodeToString(b), nil
 }

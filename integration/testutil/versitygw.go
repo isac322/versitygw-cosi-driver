@@ -1,3 +1,4 @@
+// Package testutil provides helpers for integration tests.
 package testutil
 
 import (
@@ -89,7 +90,11 @@ func getFreePort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("failed to get free port: %v", err)
 	}
-	port := l.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatal("listener address is not *net.TCPAddr")
+	}
+	port := tcpAddr.Port
 	l.Close()
 	return port
 }

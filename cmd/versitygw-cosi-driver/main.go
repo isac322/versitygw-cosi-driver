@@ -1,6 +1,8 @@
+// Package main is the entry point for the versitygw COSI driver.
 package main
 
 import (
+	"context"
 	"flag"
 	"net"
 	"os"
@@ -8,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	_ "github.com/KimMachineGun/automemlimit"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	cosi "sigs.k8s.io/container-object-storage-interface-spec"
@@ -45,14 +48,12 @@ func main() {
 
 	// Remove existing socket file if present
 	socketPath := endpoint
-	if strings.HasPrefix(socketPath, "unix://") {
-		socketPath = socketPath[len("unix://"):]
-	}
+	socketPath = strings.TrimPrefix(socketPath, "unix://")
 	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
 		klog.Fatalf("Failed to remove existing socket: %v", err)
 	}
 
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socketPath)
 	if err != nil {
 		klog.Fatalf("Failed to listen on %s: %v", socketPath, err)
 	}
