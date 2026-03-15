@@ -1,0 +1,99 @@
+nameOverride: ""
+fullnameOverride: ""
+
+driver:
+  image:
+    repository: ghcr.io/isac322/versitygw-cosi-driver
+    tag: ""  # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # Resource requests/limits for the driver container.
+  # Default is empty (BestEffort QoS). Recommended to set for production:
+  #   requests:
+  #     cpu: 10m
+  #     memory: 64Mi
+  #   limits:
+  #     memory: 128Mi
+  resources: {}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+sidecar:
+  image:
+    repository: registry.k8s.io/sig-storage/objectstorage-sidecar
+    tag: v0.2.2
+    pullPolicy: IfNotPresent
+  # Resource requests/limits for the sidecar container.
+  # Default is empty (BestEffort QoS). Recommended to set for production:
+  #   requests:
+  #     cpu: 10m
+  #     memory: 64Mi
+  #   limits:
+  #     memory: 128Mi
+  resources: {}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+imagePullSecrets: []
+
+# versitygw connection settings.
+# Defaults are aligned with the official versitygw Helm chart
+# (oci://ghcr.io/versity/versitygw/charts/versitygw).
+versitygw:
+  # Service name of the versitygw instance.
+  # Used to construct s3Endpoint and adminEndpoint when they are empty.
+  serviceName: "versitygw"
+  # S3 API endpoint. If empty, derived as http://<serviceName>:<s3Port>.
+  s3Endpoint: ""
+  # S3 API port (used when s3Endpoint is empty).
+  s3Port: 7070
+  # Admin API endpoint. If empty, derived as http://<serviceName>:<adminPort>.
+  adminEndpoint: ""
+  # Admin API port (used when adminEndpoint is empty).
+  adminPort: 7071
+  # S3 region.
+  region: "us-east-1"
+  # Credentials secret. Key names match the official versitygw Helm chart.
+  credentials:
+    secretName: "versitygw-root-credentials"
+    accessKeyField: "rootAccessKeyId"
+    secretKeyField: "rootSecretAccessKey"
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+bucketClass:
+  create: true
+  name: ""
+  deletionPolicy: Delete
+  parameters: {}
+
+bucketAccessClass:
+  create: true
+  name: ""
+  authenticationType: KEY
+  parameters: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}

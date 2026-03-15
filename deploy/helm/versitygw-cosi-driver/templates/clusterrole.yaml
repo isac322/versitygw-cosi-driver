@@ -1,0 +1,34 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "versitygw-cosi-driver.fullname" . }}
+  labels:
+    {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["objectstorage.k8s.io"]
+    resources:
+      - buckets
+      - bucketclaims
+      - bucketaccesses
+      - bucketaccessclasses
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+  - apiGroups: ["objectstorage.k8s.io"]
+    resources:
+      - buckets/status
+      - bucketaccesses/status
+      - bucketclaims/status
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs: ["get", "create", "update", "delete"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+{{- end }}

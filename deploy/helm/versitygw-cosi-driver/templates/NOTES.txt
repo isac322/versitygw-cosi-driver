@@ -1,0 +1,29 @@
+== Prerequisites ==
+
+COSI controller and CRDs must be installed before using this driver.
+If not already installed, run:
+
+  kubectl create -k 'https://github.com/kubernetes-sigs/container-object-storage-interface//?ref=v0.2.2'
+
+== Installed Resources ==
+
+Deployment: {{ include "versitygw-cosi-driver.fullname" . }} (namespace: {{ .Release.Namespace }})
+{{- if .Values.serviceAccount.create }}
+ServiceAccount: {{ include "versitygw-cosi-driver.serviceAccountName" . }}
+{{- end }}
+{{- if .Values.rbac.create }}
+ClusterRole: {{ include "versitygw-cosi-driver.fullname" . }}
+ClusterRoleBinding: {{ include "versitygw-cosi-driver.fullname" . }}
+{{- end }}
+{{- if .Values.bucketClass.create }}
+BucketClass: {{ .Values.bucketClass.name | default (include "versitygw-cosi-driver.fullname" .) }}
+{{- end }}
+{{- if .Values.bucketAccessClass.create }}
+BucketAccessClass: {{ .Values.bucketAccessClass.name | default (include "versitygw-cosi-driver.fullname" .) }}
+{{- end }}
+
+== Verify ==
+
+  kubectl get deployment {{ include "versitygw-cosi-driver.fullname" . }} -n {{ .Release.Namespace }}
+  kubectl get bucketclass
+  kubectl get bucketaccessclass

@@ -1,0 +1,67 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: "{{ include "versitygw-cosi-driver.fullname" . }}-test"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ include "versitygw-cosi-driver.fullname" . }}-test"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ include "versitygw-cosi-driver.fullname" . }}-test"
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "versitygw-cosi-driver.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "versitygw-cosi-driver.fullname" . }}-test"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  restartPolicy: Never
+  serviceAccountName: {{ include "versitygw-cosi-driver.serviceAccountName" . }}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test
+      image: bitnami/kubectl:latest
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      command: ["kubectl"]
+      args:
+        - rollout
+        - status
+        - "deployment/{{ include "versitygw-cosi-driver.fullname" . }}"
+        - --namespace={{ .Release.Namespace }}
+        - --timeout=60s

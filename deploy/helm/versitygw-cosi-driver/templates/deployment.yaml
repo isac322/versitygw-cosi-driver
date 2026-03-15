@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "versitygw-cosi-driver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "versitygw-cosi-driver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "versitygw-cosi-driver.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "versitygw-cosi-driver.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: driver
+          image: {{ include "versitygw-cosi-driver.driverImage" . }}
+          imagePullPolicy: {{ .Values.driver.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.driver.securityContext | nindent 12 }}
+          args:
+            - "--endpoint=/var/lib/cosi/cosi.sock"
+          env:
+            - name: VERSITYGW_S3_ENDPOINT
+              value: {{ include "versitygw-cosi-driver.s3Endpoint" . | quote }}
+            - name: VERSITYGW_ADMIN_ENDPOINT
+              value: {{ include "versitygw-cosi-driver.adminEndpoint" . | quote }}
+            - name: VERSITYGW_REGION
+              value: {{ .Values.versitygw.region | quote }}
+            - name: VERSITYGW_ADMIN_ACCESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.versitygw.credentials.secretName }}
+                  key: {{ .Values.versitygw.credentials.accessKeyField }}
+            - name: VERSITYGW_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.versitygw.credentials.secretName }}
+                  key: {{ .Values.versitygw.credentials.secretKeyField }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/cosi
+          resources:
+            {{- toYaml .Values.driver.resources | nindent 12 }}
+
+        - name: sidecar
+          image: {{ include "versitygw-cosi-driver.sidecarImage" . }}
+          imagePullPolicy: {{ .Values.sidecar.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.sidecar.securityContext | nindent 12 }}
+          args:
+            - "--driver-addr=unix:///var/lib/cosi/cosi.sock"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/cosi
+          resources:
+            {{- toYaml .Values.sidecar.resources | nindent 12 }}
+
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
