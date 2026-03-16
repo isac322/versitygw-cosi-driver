@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -194,4 +195,22 @@ func TestValidateBucketName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateSecretKey(t *testing.T) {
+	t.Parallel()
+
+	key, err := generateSecretKey()
+	require.NoError(t, err)
+
+	// 20 random bytes → 40 hex characters
+	assert.Len(t, key, 40)
+
+	_, err = hex.DecodeString(key)
+	require.NoError(t, err)
+
+	// Each call should produce a unique value
+	key2, err := generateSecretKey()
+	require.NoError(t, err)
+	assert.NotEqual(t, key, key2)
 }
