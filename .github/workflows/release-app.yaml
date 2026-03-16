@@ -1,4 +1,4 @@
-name: Release
+name: Release App
 
 on:
   release:
@@ -16,6 +16,7 @@ env:
 
 jobs:
   build-and-push:
+    if: startsWith(github.event.release.tag_name, 'app-v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,17 +38,15 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},match=v(\d+\.\d+\.\d+.*)$
+            type=semver,pattern={{major}}.{{minor}},match=v(\d+\.\d+\.\d+.*)$
+            type=semver,pattern={{major}},match=v(\d+\.\d+\.\d+.*)$
             type=sha,prefix=sha-,format=short
           labels: |
             org.opencontainers.image.title=versitygw-cosi-driver
             org.opencontainers.image.description=COSI driver for Versity Gateway
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.version=${{ github.event.release.tag_name }}
-            org.opencontainers.image.created=${{ github.event.release.created_at }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
 

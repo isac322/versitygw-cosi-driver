@@ -1,0 +1,63 @@
+name: Release Chart
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - deploy/helm/versitygw-cosi-driver/**
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get chart version
+        id: chart
+        run: |
+          VERSION=$(yq '.version' deploy/helm/versitygw-cosi-driver/Chart.yaml)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=chart-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: check
+        run: |
+          if git ls-remote --tags origin "refs/tags/${{ steps.chart.outputs.tag }}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          git tag "${{ steps.chart.outputs.tag }}"
+          git push origin "${{ steps.chart.outputs.tag }}"
+
+      - name: Log in to GHCR
+        if: steps.check.outputs.exists != 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package Helm chart
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          helm package deploy/helm/versitygw-cosi-driver \
+            --version "${{ steps.chart.outputs.version }}" \
+            --app-version "${{ steps.chart.outputs.version }}"
+
+      - name: Push Helm chart
+        if: steps.check.outputs.exists != 'true'
+        run: helm push versitygw-cosi-driver-*.tgz oci://ghcr.io/isac322/charts
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.chart.outputs.tag }}
+          name: ${{ steps.chart.outputs.tag }}
+          generate_release_notes: true
