@@ -19,6 +19,8 @@ Kubernetes COSI driver for VersityGW S3-compatible object storage.
 - **App**: `gh release create app-v<version>` → triggers Docker image build/push to GHCR (`release-app.yaml`)
 - **Chart**: bump `version` and `appVersion` in `deploy/helm/versitygw-cosi-driver/Chart.yaml` and push to master → auto-creates `chart-v<version>` tag and releases to GHCR OCI registry (`release-chart.yaml`)
 - Update `CHANGELOG.md` Unreleased → `[<version>] - <date>` before releasing
+- App and Chart are released independently. Do not modify files for one when releasing the other
+- All code, comments, documentation, commit messages, PR bodies, and release notes in this project MUST be written in **English**
 
 ## Gotchas
 
