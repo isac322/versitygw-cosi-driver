@@ -3,7 +3,7 @@ name: versitygw-cosi-driver
 description: A COSI driver for versitygw object storage
 type: application
 version: 0.3.0
-appVersion: "0.2.0"
+appVersion: "0.3.0"
 maintainers:
   - name: isac322
 sources:
