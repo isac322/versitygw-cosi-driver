@@ -115,7 +115,7 @@ func TestPolicyPrincipalMarshalJSON(t *testing.T) {
 func TestBucketPolicyStmtRoundtrip(t *testing.T) {
 	t.Parallel()
 
-	stmt := bucketPolicyStmt{
+	stmt := BucketPolicyStmt{
 		Effect:    "Allow",
 		Principal: policyPrincipal{"AWS": {"user1", "user2"}},
 		Action:    "s3:*",
@@ -125,7 +125,7 @@ func TestBucketPolicyStmtRoundtrip(t *testing.T) {
 	data, err := json.Marshal(stmt)
 	require.NoError(t, err)
 
-	var decoded bucketPolicyStmt
+	var decoded BucketPolicyStmt
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 	assert.Equal(t, stmt, decoded)
@@ -137,7 +137,7 @@ func TestBucketPolicyStmtUnmarshalSinglePrincipal(t *testing.T) {
 	// S3 may return a single principal as a string instead of an array
 	input := `{"Effect":"Allow","Principal":{"AWS":"user1"},"Action":"s3:*","Resource":["arn:aws:s3:::bucket"]}`
 
-	var stmt bucketPolicyStmt
+	var stmt BucketPolicyStmt
 	err := json.Unmarshal([]byte(input), &stmt)
 	require.NoError(t, err)
 	assert.Equal(t, policyPrincipal{"AWS": {"user1"}}, stmt.Principal)

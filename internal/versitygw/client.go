@@ -54,13 +54,14 @@ type apiErrorResponse struct {
 	Message string   `xml:"Message"`
 }
 
-// bucketPolicy is a JSON-serializable bucket policy structure.
-type bucketPolicy struct {
+// BucketPolicy is a JSON-serializable bucket policy structure.
+type BucketPolicy struct {
 	Version   string             `json:"Version"`
-	Statement []bucketPolicyStmt `json:"Statement"`
+	Statement []BucketPolicyStmt `json:"Statement"`
 }
 
-type bucketPolicyStmt struct {
+// BucketPolicyStmt represents a single statement in an S3 bucket policy.
+type BucketPolicyStmt struct {
 	Effect    string          `json:"Effect"`
 	Principal policyPrincipal `json:"Principal"`
 	Action    string          `json:"Action"`
@@ -168,7 +169,7 @@ func (c *Client) DeleteBucket(ctx context.Context, name string) error {
 
 // GetBucketPolicy retrieves and parses the bucket policy.
 // Returns nil, nil if no policy exists.
-func (c *Client) GetBucketPolicy(ctx context.Context, bucket string) (*bucketPolicy, error) {
+func (c *Client) GetBucketPolicy(ctx context.Context, bucket string) (*BucketPolicy, error) {
 	resp, err := c.s3Client.GetBucketPolicy(ctx, &s3.GetBucketPolicyInput{
 		Bucket: aws.String(bucket),
 	})
@@ -180,7 +181,7 @@ func (c *Client) GetBucketPolicy(ctx context.Context, bucket string) (*bucketPol
 		return nil, fmt.Errorf("get bucket policy for %q: %w", bucket, err)
 	}
 
-	var policy bucketPolicy
+	var policy BucketPolicy
 	if err := json.Unmarshal([]byte(aws.ToString(resp.Policy)), &policy); err != nil {
 		return nil, fmt.Errorf("unmarshal bucket policy for %q: %w", bucket, err)
 	}
@@ -212,7 +213,7 @@ func (c *Client) PutBucketPolicy(ctx context.Context, bucket, principal string) 
 			}
 		}
 		if !merged {
-			existing.Statement = append(existing.Statement, bucketPolicyStmt{
+			existing.Statement = append(existing.Statement, BucketPolicyStmt{
 				Effect:    "Allow",
 				Principal: policyPrincipal{"AWS": {principal}},
 				Action:    "s3:*",
@@ -220,9 +221,9 @@ func (c *Client) PutBucketPolicy(ctx context.Context, bucket, principal string) 
 			})
 		}
 	} else {
-		existing = &bucketPolicy{
+		existing = &BucketPolicy{
 			Version: "2012-10-17",
-			Statement: []bucketPolicyStmt{
+			Statement: []BucketPolicyStmt{
 				{
 					Effect:    "Allow",
 					Principal: policyPrincipal{"AWS": {principal}},
@@ -271,7 +272,7 @@ func (c *Client) RemoveBucketPolicyPrincipal(ctx context.Context, bucket, princi
 		return nil
 	}
 
-	var remaining []bucketPolicyStmt
+	var remaining []BucketPolicyStmt
 	for _, stmt := range existing.Statement {
 		principals := stmt.Principal["AWS"]
 		filtered := slices.DeleteFunc(slices.Clone(principals), func(p string) bool {

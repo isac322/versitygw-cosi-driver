@@ -72,15 +72,15 @@ func validateBucketName(name string) error {
 		return status.Errorf(codes.InvalidArgument, "bucket name must be between 3 and 63 characters, got %d", len(name))
 	}
 	for _, c := range name {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
 			return status.Errorf(codes.InvalidArgument, "bucket name contains invalid character %q", c)
 		}
 	}
 	first, last := name[0], name[len(name)-1]
-	if !((first >= 'a' && first <= 'z') || (first >= '0' && first <= '9')) {
+	if (first < 'a' || first > 'z') && (first < '0' || first > '9') {
 		return status.Errorf(codes.InvalidArgument, "bucket name must start with a lowercase letter or number")
 	}
-	if !((last >= 'a' && last <= 'z') || (last >= '0' && last <= '9')) {
+	if (last < 'a' || last > 'z') && (last < '0' || last > '9') {
 		return status.Errorf(codes.InvalidArgument, "bucket name must end with a lowercase letter or number")
 	}
 	return nil
