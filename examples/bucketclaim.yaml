@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   # Use the BucketClass name from your Helm release.
-  # Default: <release-name>-versitygw-cosi-driver
-  bucketClassName: versitygw-cosi-driver
+  # Default: versitygw
+  bucketClassName: versitygw
   protocols:
     - s3

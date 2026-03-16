@@ -2,8 +2,11 @@ package integration
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/require"
 	"github.com/versity/versitygw/auth"
 
@@ -177,6 +180,180 @@ func TestPutBucketPolicy(t *testing.T) {
 
 	err = client.PutBucketPolicy(ctx, "policy-test", "policyuser")
 	require.NoError(t, err)
+}
+
+func TestPutBucketPolicyMerge(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "merge-policy")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, "mergeuser1", "secret1234567890", "user")
+	require.NoError(t, err)
+	err = client.CreateUser(ctx, "mergeuser2", "secret1234567890", "user")
+	require.NoError(t, err)
+
+	// Add first principal
+	err = client.PutBucketPolicy(ctx, "merge-policy", "mergeuser1")
+	require.NoError(t, err)
+
+	// Add second principal (should merge, not overwrite)
+	err = client.PutBucketPolicy(ctx, "merge-policy", "mergeuser2")
+	require.NoError(t, err)
+
+	// Both users should have access
+	u1 := newUserS3Client(t, gw.Endpoint, "mergeuser1", "secret1234567890")
+	_, err = u1.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("merge-policy"),
+		Key:    aws.String("u1.txt"),
+		Body:   strings.NewReader("user1"),
+	})
+	require.NoError(t, err)
+
+	u2 := newUserS3Client(t, gw.Endpoint, "mergeuser2", "secret1234567890")
+	_, err = u2.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("merge-policy"),
+		Key:    aws.String("u2.txt"),
+		Body:   strings.NewReader("user2"),
+	})
+	require.NoError(t, err)
+}
+
+func TestRemoveBucketPolicyPrincipal(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "remove-principal")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, "rmuser1", "secret1234567890", "user")
+	require.NoError(t, err)
+	err = client.CreateUser(ctx, "rmuser2", "secret1234567890", "user")
+	require.NoError(t, err)
+
+	// Grant both users
+	err = client.PutBucketPolicy(ctx, "remove-principal", "rmuser1")
+	require.NoError(t, err)
+	err = client.PutBucketPolicy(ctx, "remove-principal", "rmuser2")
+	require.NoError(t, err)
+
+	// Remove first user's principal
+	err = client.RemoveBucketPolicyPrincipal(ctx, "remove-principal", "rmuser1")
+	require.NoError(t, err)
+
+	// Second user should still have access
+	u2 := newUserS3Client(t, gw.Endpoint, "rmuser2", "secret1234567890")
+	_, err = u2.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("remove-principal"),
+		Key:    aws.String("test.txt"),
+		Body:   strings.NewReader("data"),
+	})
+	require.NoError(t, err)
+}
+
+func TestPutBucketPolicyDuplicate(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "dup-policy")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, "dupuser", "secret1234567890", "user")
+	require.NoError(t, err)
+
+	// Add same principal twice — should be idempotent
+	err = client.PutBucketPolicy(ctx, "dup-policy", "dupuser")
+	require.NoError(t, err)
+	err = client.PutBucketPolicy(ctx, "dup-policy", "dupuser")
+	require.NoError(t, err)
+
+	// User should still have access (no duplicate entry issues)
+	u := newUserS3Client(t, gw.Endpoint, "dupuser", "secret1234567890")
+	_, err = u.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("dup-policy"),
+		Key:    aws.String("test.txt"),
+		Body:   strings.NewReader("data"),
+	})
+	require.NoError(t, err)
+}
+
+func TestRemoveBucketPolicyPrincipalNoPolicy(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "no-policy")
+	require.NoError(t, err)
+
+	// Remove from bucket with no policy — should be idempotent (no error)
+	err = client.RemoveBucketPolicyPrincipal(ctx, "no-policy", "nonexistent")
+	require.NoError(t, err)
+}
+
+func TestRemoveBucketPolicyPrincipalNonExistent(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "rm-nonexist")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, "keepuser", "secret1234567890", "user")
+	require.NoError(t, err)
+
+	err = client.PutBucketPolicy(ctx, "rm-nonexist", "keepuser")
+	require.NoError(t, err)
+
+	// Remove a principal that doesn't exist in the policy — should not affect existing
+	err = client.RemoveBucketPolicyPrincipal(ctx, "rm-nonexist", "ghost")
+	require.NoError(t, err)
+
+	// Original user should still have access
+	u := newUserS3Client(t, gw.Endpoint, "keepuser", "secret1234567890")
+	_, err = u.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("rm-nonexist"),
+		Key:    aws.String("test.txt"),
+		Body:   strings.NewReader("data"),
+	})
+	require.NoError(t, err)
+}
+
+func TestRemoveBucketPolicyLastPrincipal(t *testing.T) {
+	t.Parallel()
+	gw := testutil.StartVersityGW(t)
+	client := versitygw.NewClient(gw.Endpoint, gw.AdminEndpoint, gw.AccessKey, gw.SecretKey)
+	ctx := context.Background()
+
+	err := client.CreateBucket(ctx, "remove-last")
+	require.NoError(t, err)
+
+	err = client.CreateUser(ctx, "lastuser", "secret1234567890", "user")
+	require.NoError(t, err)
+
+	err = client.PutBucketPolicy(ctx, "remove-last", "lastuser")
+	require.NoError(t, err)
+
+	// Remove the only principal — policy should be deleted
+	err = client.RemoveBucketPolicyPrincipal(ctx, "remove-last", "lastuser")
+	require.NoError(t, err)
+
+	// User should no longer have access
+	u := newUserS3Client(t, gw.Endpoint, "lastuser", "secret1234567890")
+	_, err = u.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("remove-last"),
+		Key:    aws.String("test.txt"),
+		Body:   strings.NewReader("data"),
+	})
+	require.Error(t, err)
 }
 
 func containsUser(users []auth.Account, access string) bool {

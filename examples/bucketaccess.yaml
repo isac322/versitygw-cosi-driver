@@ -6,7 +6,7 @@ metadata:
 spec:
   bucketClaimName: my-bucket
   # Use the BucketAccessClass name from your Helm release.
-  # Default: <release-name>-versitygw-cosi-driver
-  bucketAccessClassName: versitygw-cosi-driver
+  # Default: versitygw
+  bucketAccessClassName: versitygw
   credentialsSecretName: my-bucket-credentials
   protocol: s3

@@ -2,8 +2,11 @@ package integration
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/require"
 	cosi "sigs.k8s.io/container-object-storage-interface-spec"
 
@@ -156,4 +159,95 @@ func TestDriverGrantThenRevoke(t *testing.T) {
 	// Delete bucket
 	_, err = srv.DriverDeleteBucket(ctx, &cosi.DriverDeleteBucketRequest{BucketId: "flow-test"})
 	require.NoError(t, err)
+}
+
+func TestDriverGrantMultipleUsers(t *testing.T) {
+	t.Parallel()
+	srv, gw := newTestServer(t)
+	ctx := context.Background()
+
+	_, err := srv.DriverCreateBucket(ctx, &cosi.DriverCreateBucketRequest{Name: "multi-grant"})
+	require.NoError(t, err)
+
+	// Grant first user
+	resp1, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
+		BucketId: "multi-grant",
+		Name:     "user1",
+	})
+	require.NoError(t, err)
+	creds1 := resp1.Credentials["s3"].Secrets
+
+	// Grant second user
+	resp2, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
+		BucketId: "multi-grant",
+		Name:     "user2",
+	})
+	require.NoError(t, err)
+	creds2 := resp2.Credentials["s3"].Secrets
+
+	// Both users should have S3 access
+	u1 := newUserS3Client(t, gw.Endpoint, creds1["accessKeyID"], creds1["accessSecretKey"])
+	_, err = u1.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("multi-grant"),
+		Key:    aws.String("u1.txt"),
+		Body:   strings.NewReader("user1"),
+	})
+	require.NoError(t, err)
+
+	u2 := newUserS3Client(t, gw.Endpoint, creds2["accessKeyID"], creds2["accessSecretKey"])
+	_, err = u2.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("multi-grant"),
+		Key:    aws.String("u2.txt"),
+		Body:   strings.NewReader("user2"),
+	})
+	require.NoError(t, err)
+}
+
+func TestDriverRevokeOneOfMultipleUsers(t *testing.T) {
+	t.Parallel()
+	srv, gw := newTestServer(t)
+	ctx := context.Background()
+
+	_, err := srv.DriverCreateBucket(ctx, &cosi.DriverCreateBucketRequest{Name: "multi-revoke"})
+	require.NoError(t, err)
+
+	// Grant two users
+	resp1, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
+		BucketId: "multi-revoke",
+		Name:     "user1",
+	})
+	require.NoError(t, err)
+	creds1 := resp1.Credentials["s3"].Secrets
+
+	resp2, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
+		BucketId: "multi-revoke",
+		Name:     "user2",
+	})
+	require.NoError(t, err)
+	creds2 := resp2.Credentials["s3"].Secrets
+
+	// Revoke first user
+	_, err = srv.DriverRevokeBucketAccess(ctx, &cosi.DriverRevokeBucketAccessRequest{
+		BucketId:  "multi-revoke",
+		AccountId: resp1.AccountId,
+	})
+	require.NoError(t, err)
+
+	// Second user should still have access
+	u2 := newUserS3Client(t, gw.Endpoint, creds2["accessKeyID"], creds2["accessSecretKey"])
+	_, err = u2.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("multi-revoke"),
+		Key:    aws.String("test.txt"),
+		Body:   strings.NewReader("data"),
+	})
+	require.NoError(t, err)
+
+	// First user should be denied (user is deleted)
+	u1 := newUserS3Client(t, gw.Endpoint, creds1["accessKeyID"], creds1["accessSecretKey"])
+	_, err = u1.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("multi-revoke"),
+		Key:    aws.String("denied.txt"),
+		Body:   strings.NewReader("denied"),
+	})
+	require.Error(t, err)
 }
