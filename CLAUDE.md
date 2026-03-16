@@ -14,6 +14,12 @@ Kubernetes COSI driver for VersityGW S3-compatible object storage.
 - Always write corresponding tests when modifying or adding code
 - Always update `CHANGELOG.md` in [Keep a Changelog](https://keepachangelog.com) format when changing code (add to Unreleased section)
 
+## Release
+
+- **App**: `gh release create app-v<version>` → triggers Docker image build/push to GHCR (`release-app.yaml`)
+- **Chart**: bump `version` and `appVersion` in `deploy/helm/versitygw-cosi-driver/Chart.yaml` and push to master → auto-creates `chart-v<version>` tag and releases to GHCR OCI registry (`release-chart.yaml`)
+- Update `CHANGELOG.md` Unreleased → `[<version>] - <date>` before releasing
+
 ## Gotchas
 
 - `integration/` directory is exempt from wrapcheck and noctx linters
