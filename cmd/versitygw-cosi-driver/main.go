@@ -23,6 +23,7 @@ import (
 func main() {
 	var (
 		endpoint        string
+		driverName      string
 		gwS3Endpoint    string
 		gwAdminEndpoint string
 		adminAccess     string
@@ -31,6 +32,7 @@ func main() {
 	)
 
 	flag.StringVar(&endpoint, "endpoint", "/var/lib/cosi/cosi.sock", "Path to the COSI Unix socket")
+	flag.StringVar(&driverName, "driver-name", envOrDefault("DRIVER_NAME", ""), "COSI driver name (required)")
 	flag.StringVar(&gwS3Endpoint, "versitygw-s3-endpoint", envOrDefault("VERSITYGW_S3_ENDPOINT", "http://localhost:7070"), "versitygw S3 API endpoint URL")
 	flag.StringVar(&gwAdminEndpoint, "versitygw-admin-endpoint", envOrDefault("VERSITYGW_ADMIN_ENDPOINT", "http://localhost:7071"), "versitygw Admin API endpoint URL")
 	flag.StringVar(&adminAccess, "admin-access", envOrDefault("VERSITYGW_ADMIN_ACCESS", ""), "versitygw admin access key")
@@ -40,6 +42,9 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
+	if driverName == "" {
+		klog.Fatal("driver-name is required")
+	}
 	if adminAccess == "" || adminSecret == "" {
 		klog.Fatal("admin-access and admin-secret are required")
 	}
@@ -59,7 +64,7 @@ func main() {
 	}
 
 	server := grpc.NewServer()
-	cosi.RegisterIdentityServer(server, &driver.IdentityServer{})
+	cosi.RegisterIdentityServer(server, driver.NewIdentityServer(driverName))
 	cosi.RegisterProvisionerServer(server, driver.NewProvisionerServer(client, gwS3Endpoint, region))
 
 	// Graceful shutdown

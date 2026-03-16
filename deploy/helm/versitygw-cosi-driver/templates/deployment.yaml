@@ -38,6 +38,8 @@ spec:
           args:
             - "--endpoint=/var/lib/cosi/cosi.sock"
           env:
+            - name: DRIVER_NAME
+              value: {{ include "versitygw-cosi-driver.driverName" . | quote }}
             - name: VERSITYGW_S3_ENDPOINT
               value: {{ include "versitygw-cosi-driver.s3Endpoint" . | quote }}
             - name: VERSITYGW_ADMIN_ENDPOINT

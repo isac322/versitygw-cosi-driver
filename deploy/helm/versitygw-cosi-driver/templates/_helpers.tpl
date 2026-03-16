@@ -77,6 +77,13 @@ Create the sidecar container image reference.
 {{- end }}
 
 {{/*
+Resolve the COSI driver name (required).
+*/}}
+{{- define "versitygw-cosi-driver.driverName" -}}
+{{- required "driver.name is required" .Values.driver.name }}
+{{- end }}
+
+{{/*
 BucketClass name (short default).
 */}}
 {{- define "versitygw-cosi-driver.bucketClassName" -}}

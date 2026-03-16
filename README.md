@@ -49,6 +49,7 @@ kubectl create secret generic versitygw-admin-credentials \
 
 ```bash
 helm install versitygw-cosi-driver ./deploy/helm/versitygw-cosi-driver/ \
+  --set driver.name=versitygw.cosi.dev \
   --set versitygw.s3Endpoint=http://versitygw:7070 \
   --set versitygw.adminEndpoint=http://versitygw:7071 \
   --set versitygw.credentials.secretName=versitygw-admin-credentials
@@ -63,7 +64,7 @@ metadata:
   name: my-bucket
   namespace: default
 spec:
-  bucketClassName: versitygw-cosi-driver
+  bucketClassName: versitygw
   protocols:
     - s3
 ```
@@ -82,7 +83,7 @@ metadata:
   namespace: default
 spec:
   bucketClaimName: my-bucket
-  bucketAccessClassName: versitygw-cosi-driver
+  bucketAccessClassName: versitygw
   credentialsSecretName: my-bucket-credentials
   protocol: s3
 ```
@@ -95,6 +96,7 @@ The driver creates a dedicated IAM user, attaches a bucket policy, and stores S3
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `driver.name` | COSI driver name (required) | `""` |
 | `versitygw.s3Endpoint` | VersityGW S3 API endpoint | `http://versitygw:7070` |
 | `versitygw.adminEndpoint` | VersityGW Admin API endpoint | `http://versitygw:7071` |
 | `versitygw.region` | S3 region | `us-east-1` |
@@ -114,6 +116,7 @@ See [`deploy/helm/versitygw-cosi-driver/values.yaml`](deploy/helm/versitygw-cosi
 | `VERSITYGW_ADMIN_ENDPOINT` | VersityGW Admin API endpoint URL |
 | `VERSITYGW_ADMIN_ACCESS` | Admin access key |
 | `VERSITYGW_ADMIN_SECRET` | Admin secret key |
+| `DRIVER_NAME` | COSI driver name (required) |
 | `VERSITYGW_REGION` | S3 region (default: `us-east-1`) |
 
 ## Architecture

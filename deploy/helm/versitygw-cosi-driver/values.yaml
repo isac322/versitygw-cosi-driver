@@ -2,6 +2,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 driver:
+  # COSI driver name (required). Must be unique per driver instance.
+  # Example: "versitygw.cosi.dev", "versitygw-hdd.cosi.dev"
+  name: ""
   image:
     repository: ghcr.io/isac322/versitygw-cosi-driver
     tag: ""  # defaults to .Chart.AppVersion

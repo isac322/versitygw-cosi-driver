@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-16
+
+### Added
+
+- `--driver-name` CLI flag and `DRIVER_NAME` environment variable for configurable
+  COSI driver name. The driver name is now a required parameter.
+- Kustomize deployment support as an alternative to Helm. Base manifests include
+  Deployment, ServiceAccount, ClusterRole, and ClusterRoleBinding. BucketClass and
+  BucketAccessClass are available as optional kustomize components. A `default` overlay
+  combines base with all components for quick setup.
+
+### Changed
+
+- Driver name is no longer hardcoded to `versitygw.cosi.dev`. Users must explicitly
+  set the driver name via CLI flag, environment variable, or Helm `driver.name` value.
+
 ## [0.2.0] - 2026-03-16
 
 ### Added
@@ -70,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD pipeline with container image and Helm chart releases.
 - Dockerfile with multi-stage build and security hardening.
 
-[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/isac322/versitygw-cosi-driver/releases/tag/v0.1.0

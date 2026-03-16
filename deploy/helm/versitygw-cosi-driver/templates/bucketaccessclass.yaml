@@ -5,7 +5,7 @@ metadata:
   name: {{ include "versitygw-cosi-driver.bucketAccessClassName" . }}
   labels:
     {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
-driverName: versitygw.cosi.dev
+driverName: {{ include "versitygw-cosi-driver.driverName" . }}
 authenticationType: {{ .Values.bucketAccessClass.authenticationType }}
 {{- with .Values.bucketAccessClass.parameters }}
 parameters:

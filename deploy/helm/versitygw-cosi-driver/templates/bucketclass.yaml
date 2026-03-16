@@ -5,7 +5,7 @@ metadata:
   name: {{ include "versitygw-cosi-driver.bucketClassName" . }}
   labels:
     {{- include "versitygw-cosi-driver.labels" . | nindent 4 }}
-driverName: versitygw.cosi.dev
+driverName: {{ include "versitygw-cosi-driver.driverName" . }}
 deletionPolicy: {{ .Values.bucketClass.deletionPolicy }}
 {{- with .Values.bucketClass.parameters }}
 parameters:
