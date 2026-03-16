@@ -5,6 +5,12 @@ If not already installed, run:
 
   kubectl create -k 'https://github.com/kubernetes-sigs/container-object-storage-interface//?ref=v0.2.2'
 
+VersityGW must be configured with:
+  - IAM enabled: iam.enabled=true (or --iam-dir flag)
+    Without this, the Admin API's create-user returns XAdminMethodNotSupported.
+  - Admin API enabled: admin.enabled=true (or --admin-port flag)
+    The driver uses the Admin API to manage users.
+
 == Installed Resources ==
 
 Deployment: {{ include "versitygw-cosi-driver.fullname" . }} (namespace: {{ .Release.Namespace }})
@@ -16,10 +22,10 @@ ClusterRole: {{ include "versitygw-cosi-driver.fullname" . }}
 ClusterRoleBinding: {{ include "versitygw-cosi-driver.fullname" . }}
 {{- end }}
 {{- if .Values.bucketClass.create }}
-BucketClass: {{ .Values.bucketClass.name | default (include "versitygw-cosi-driver.fullname" .) }}
+BucketClass: {{ include "versitygw-cosi-driver.bucketClassName" . }}
 {{- end }}
 {{- if .Values.bucketAccessClass.create }}
-BucketAccessClass: {{ .Values.bucketAccessClass.name | default (include "versitygw-cosi-driver.fullname" .) }}
+BucketAccessClass: {{ include "versitygw-cosi-driver.bucketAccessClassName" . }}
 {{- end }}
 
 == Verify ==

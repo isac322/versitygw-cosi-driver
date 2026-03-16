@@ -25,6 +25,9 @@ sidecar:
     repository: registry.k8s.io/sig-storage/objectstorage-sidecar
     tag: v0.2.2
     pullPolicy: IfNotPresent
+  # Extra arguments for the objectstorage-sidecar container.
+  # Example: ["--v=5"] for verbose logging
+  extraArgs: []
   # Resource requests/limits for the sidecar container.
   # Default is empty (BestEffort QoS). Recommended to set for production:
   #   requests:

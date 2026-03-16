@@ -77,6 +77,20 @@ Create the sidecar container image reference.
 {{- end }}
 
 {{/*
+BucketClass name (short default).
+*/}}
+{{- define "versitygw-cosi-driver.bucketClassName" -}}
+{{- .Values.bucketClass.name | default "versitygw" }}
+{{- end }}
+
+{{/*
+BucketAccessClass name (short default).
+*/}}
+{{- define "versitygw-cosi-driver.bucketAccessClassName" -}}
+{{- .Values.bucketAccessClass.name | default "versitygw" }}
+{{- end }}
+
+{{/*
 Resolve the versitygw S3 API endpoint.
 */}}
 {{- define "versitygw-cosi-driver.s3Endpoint" -}}

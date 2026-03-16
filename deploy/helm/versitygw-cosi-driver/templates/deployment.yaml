@@ -67,6 +67,9 @@ spec:
             {{- toYaml .Values.sidecar.securityContext | nindent 12 }}
           args:
             - "--driver-addr=unix:///var/lib/cosi/cosi.sock"
+            {{- range .Values.sidecar.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/cosi

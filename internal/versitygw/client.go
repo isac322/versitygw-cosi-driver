@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,10 +61,33 @@ type bucketPolicy struct {
 }
 
 type bucketPolicyStmt struct {
-	Effect    string   `json:"Effect"`
-	Principal any      `json:"Principal"`
-	Action    string   `json:"Action"`
-	Resource  []string `json:"Resource"`
+	Effect    string          `json:"Effect"`
+	Principal policyPrincipal `json:"Principal"`
+	Action    string          `json:"Action"`
+	Resource  []string        `json:"Resource"`
+}
+
+// policyPrincipal is a map of principal type to principal identifiers.
+// S3 may represent a single principal as a string or multiple as an array;
+// UnmarshalJSON normalizes both forms into []string.
+type policyPrincipal map[string][]string
+
+func (p *policyPrincipal) UnmarshalJSON(data []byte) error {
+	var multi map[string][]string
+	if json.Unmarshal(data, &multi) == nil {
+		*p = multi
+		return nil
+	}
+	var single map[string]string
+	if json.Unmarshal(data, &single) == nil {
+		result := make(policyPrincipal, len(single))
+		for k, v := range single {
+			result[k] = []string{v}
+		}
+		*p = result
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal principal: %s", string(data))
 }
 
 // NewClient creates a new versitygw client.
@@ -142,24 +166,74 @@ func (c *Client) DeleteBucket(ctx context.Context, name string) error {
 	return nil
 }
 
-// PutBucketPolicy sets a bucket policy granting the specified principal full S3 access.
-func (c *Client) PutBucketPolicy(ctx context.Context, bucket, principal string) error {
-	policy := bucketPolicy{
-		Version: "2012-10-17",
-		Statement: []bucketPolicyStmt{
-			{
-				Effect:    "Allow",
-				Principal: map[string][]string{"AWS": {principal}},
-				Action:    "s3:*",
-				Resource: []string{
-					"arn:aws:s3:::" + bucket,
-					fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
-				},
-			},
-		},
+// GetBucketPolicy retrieves and parses the bucket policy.
+// Returns nil, nil if no policy exists.
+func (c *Client) GetBucketPolicy(ctx context.Context, bucket string) (*bucketPolicy, error) {
+	resp, err := c.s3Client.GetBucketPolicy(ctx, &s3.GetBucketPolicyInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchBucketPolicy" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get bucket policy for %q: %w", bucket, err)
 	}
 
-	policyJSON, err := json.Marshal(policy)
+	var policy bucketPolicy
+	if err := json.Unmarshal([]byte(aws.ToString(resp.Policy)), &policy); err != nil {
+		return nil, fmt.Errorf("unmarshal bucket policy for %q: %w", bucket, err)
+	}
+	return &policy, nil
+}
+
+// PutBucketPolicy grants the specified principal full S3 access to the bucket.
+// If a policy already exists, the principal is merged into the existing statement.
+func (c *Client) PutBucketPolicy(ctx context.Context, bucket, principal string) error {
+	resource := []string{
+		"arn:aws:s3:::" + bucket,
+		fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
+	}
+
+	existing, err := c.GetBucketPolicy(ctx, bucket)
+	if err != nil {
+		return err
+	}
+
+	if existing != nil {
+		merged := false
+		for i, stmt := range existing.Statement {
+			if stmt.Effect == "Allow" && stmt.Action == "s3:*" && slices.Equal(stmt.Resource, resource) {
+				if !slices.Contains(existing.Statement[i].Principal["AWS"], principal) {
+					existing.Statement[i].Principal["AWS"] = append(existing.Statement[i].Principal["AWS"], principal)
+				}
+				merged = true
+				break
+			}
+		}
+		if !merged {
+			existing.Statement = append(existing.Statement, bucketPolicyStmt{
+				Effect:    "Allow",
+				Principal: policyPrincipal{"AWS": {principal}},
+				Action:    "s3:*",
+				Resource:  resource,
+			})
+		}
+	} else {
+		existing = &bucketPolicy{
+			Version: "2012-10-17",
+			Statement: []bucketPolicyStmt{
+				{
+					Effect:    "Allow",
+					Principal: policyPrincipal{"AWS": {principal}},
+					Action:    "s3:*",
+					Resource:  resource,
+				},
+			},
+		}
+	}
+
+	policyJSON, err := json.Marshal(existing)
 	if err != nil {
 		return fmt.Errorf("marshal bucket policy: %w", err)
 	}
@@ -181,6 +255,50 @@ func (c *Client) DeleteBucketPolicy(ctx context.Context, bucket string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("delete bucket policy for %q: %w", bucket, err)
+	}
+	return nil
+}
+
+// RemoveBucketPolicyPrincipal removes a single principal from the bucket policy.
+// If no principals remain, the entire policy is deleted.
+// Returns nil if no policy exists (idempotent).
+func (c *Client) RemoveBucketPolicyPrincipal(ctx context.Context, bucket, principal string) error {
+	existing, err := c.GetBucketPolicy(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return nil
+	}
+
+	var remaining []bucketPolicyStmt
+	for _, stmt := range existing.Statement {
+		principals := stmt.Principal["AWS"]
+		filtered := slices.DeleteFunc(slices.Clone(principals), func(p string) bool {
+			return p == principal
+		})
+		if len(filtered) > 0 {
+			stmt.Principal["AWS"] = filtered
+			remaining = append(remaining, stmt)
+		}
+	}
+
+	if len(remaining) == 0 {
+		return c.DeleteBucketPolicy(ctx, bucket)
+	}
+
+	existing.Statement = remaining
+	policyJSON, err := json.Marshal(existing)
+	if err != nil {
+		return fmt.Errorf("marshal bucket policy: %w", err)
+	}
+
+	_, err = c.s3Client.PutBucketPolicy(ctx, &s3.PutBucketPolicyInput{
+		Bucket: aws.String(bucket),
+		Policy: aws.String(string(policyJSON)),
+	})
+	if err != nil {
+		return fmt.Errorf("update bucket policy for %q: %w", bucket, err)
 	}
 	return nil
 }
