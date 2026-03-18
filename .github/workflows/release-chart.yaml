@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   release:
@@ -53,6 +54,14 @@ jobs:
       - name: Push Helm chart
         if: steps.check.outputs.exists != 'true'
         run: helm push versitygw-cosi-driver-*.tgz oci://ghcr.io/isac322/charts
+
+      - name: Install cosign
+        if: steps.check.outputs.exists != 'true'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign Helm chart
+        if: steps.check.outputs.exists != 'true'
+        run: cosign sign --yes ghcr.io/isac322/charts/versitygw-cosi-driver:${{ steps.chart.outputs.version }}
 
       - name: Install oras
         if: steps.check.outputs.exists != 'true'

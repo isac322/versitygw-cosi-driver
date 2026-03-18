@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["driver", "versitygw"],
+  "properties": {
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "driver": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "COSI driver name. Must be unique per driver instance."
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "resources": {
+          "type": "object"
+        },
+        "securityContext": {
+          "type": "object"
+        }
+      }
+    },
+    "sidecar": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resources": {
+          "type": "object"
+        },
+        "securityContext": {
+          "type": "object"
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "versitygw": {
+      "type": "object",
+      "required": ["credentials"],
+      "properties": {
+        "serviceName": {
+          "type": "string"
+        },
+        "s3Endpoint": {
+          "type": "string"
+        },
+        "s3Port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "adminEndpoint": {
+          "type": "string"
+        },
+        "adminPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "region": {
+          "type": "string"
+        },
+        "credentials": {
+          "type": "object",
+          "required": ["secretName"],
+          "properties": {
+            "secretName": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name of the Secret containing admin credentials."
+            },
+            "accessKeyField": {
+              "type": "string"
+            },
+            "secretKeyField": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object"
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        }
+      }
+    },
+    "bucketClass": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "deletionPolicy": {
+          "type": "string",
+          "enum": ["Delete", "Retain"]
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "bucketAccessClass": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "authenticationType": {
+          "type": "string",
+          "enum": ["KEY", "IAM"]
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "type": "object"
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "podAnnotations": {
+      "type": "object"
+    },
+    "podLabels": {
+      "type": "object"
+    }
+  }
+}
