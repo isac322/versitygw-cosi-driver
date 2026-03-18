@@ -61,7 +61,11 @@ jobs:
 
       - name: Sign Helm chart
         if: steps.check.outputs.exists != 'true'
-        run: cosign sign --yes ghcr.io/isac322/charts/versitygw-cosi-driver:${{ steps.chart.outputs.version }}
+        env:
+          COSIGN_REPOSITORY: ghcr.io/isac322/charts/versitygw-cosi-driver
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+          cosign sign --yes ghcr.io/isac322/charts/versitygw-cosi-driver:${{ steps.chart.outputs.version }}
 
       - name: Install oras
         if: steps.check.outputs.exists != 'true'
