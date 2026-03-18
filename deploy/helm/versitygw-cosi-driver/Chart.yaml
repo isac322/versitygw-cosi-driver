@@ -2,7 +2,7 @@ apiVersion: v2
 name: versitygw-cosi-driver
 description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.3.4
+version: 0.3.5
 appVersion: "0.3.0"
 keywords:
   - cosi

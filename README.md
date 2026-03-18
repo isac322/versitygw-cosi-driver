@@ -39,19 +39,26 @@ You need a running VersityGW instance with IAM enabled (`--iam-dir`) and the Adm
 kubectl create -k 'https://github.com/kubernetes-sigs/container-object-storage-interface//?ref=v0.2.2'
 ```
 
-### 2. Create Admin Credentials Secret
+### 2. Install the Driver
+
+The driver needs access to VersityGW's root credentials. If you installed VersityGW with its Helm chart (e.g. release name `versitygw`), it already created a Secret named `versitygw-versitygw-credentials` containing `rootAccessKeyId` and `rootSecretAccessKey`. Just point the driver at it:
+
+#### Helm (VersityGW installed via Helm)
+
+```bash
+helm install versitygw-cosi-driver \
+  oci://ghcr.io/isac322/charts/versitygw-cosi-driver \
+  --set driver.name=versitygw.cosi.dev \
+  --set versitygw.credentials.secretName=versitygw-versitygw-credentials
+```
+
+If you're running VersityGW outside of Helm, create the Secret manually first:
 
 ```bash
 kubectl create secret generic versitygw-root-credentials \
   --from-literal=rootAccessKeyId=YOUR_ACCESS_KEY \
   --from-literal=rootSecretAccessKey=YOUR_SECRET_KEY
-```
 
-### 3. Install the Driver
-
-#### Helm
-
-```bash
 helm install versitygw-cosi-driver \
   oci://ghcr.io/isac322/charts/versitygw-cosi-driver \
   --set driver.name=versitygw.cosi.dev \

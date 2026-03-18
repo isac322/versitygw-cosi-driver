@@ -21,15 +21,26 @@ See the [project README](https://github.com/isac322/versitygw-cosi-driver) for a
 # 1. Install the COSI controller (if not already installed)
 kubectl create -k 'https://github.com/kubernetes-sigs/container-object-storage-interface//?ref=v0.2.2'
 
-# 2. Create admin credentials Secret (if not already present)
+# 2. Install the chart
+# If VersityGW was installed via Helm (e.g. release name "versitygw"),
+# it already created a credentials Secret:
+helm install versitygw-cosi-driver \
+  oci://ghcr.io/isac322/charts/versitygw-cosi-driver \
+  --set driver.name=versitygw.cosi.dev \
+  --set versitygw.credentials.secretName=versitygw-versitygw-credentials
+```
+
+If running VersityGW outside of Helm, create the Secret manually:
+
+```bash
 kubectl create secret generic versitygw-root-credentials \
   --from-literal=rootAccessKeyId=YOUR_ACCESS_KEY \
   --from-literal=rootSecretAccessKey=YOUR_SECRET_KEY
 
-# 3. Install the chart
 helm install versitygw-cosi-driver \
   oci://ghcr.io/isac322/charts/versitygw-cosi-driver \
-  --set driver.name=versitygw.cosi.dev
+  --set driver.name=versitygw.cosi.dev \
+  --set versitygw.credentials.secretName=versitygw-root-credentials
 ```
 
 ## Uninstalling the Chart
