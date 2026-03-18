@@ -77,4 +77,4 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Lint Helm chart
-        run: helm lint deploy/helm/versitygw-cosi-driver
+        run: helm lint deploy/helm/versitygw-cosi-driver --set driver.name=ci-test.cosi.dev
