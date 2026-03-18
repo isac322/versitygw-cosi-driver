@@ -54,9 +54,14 @@ jobs:
         if: steps.check.outputs.exists != 'true'
         run: helm push versitygw-cosi-driver-*.tgz oci://ghcr.io/isac322/charts
 
+      - name: Install oras
+        if: steps.check.outputs.exists != 'true'
+        uses: oras-project/setup-oras@v1
+
       - name: Push Artifact Hub metadata
         if: steps.check.outputs.exists != 'true'
         run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
           oras push \
             ghcr.io/isac322/charts/versitygw-cosi-driver:artifacthub.io \
             --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
