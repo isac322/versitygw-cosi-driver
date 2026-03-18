@@ -2,7 +2,7 @@ apiVersion: v2
 name: versitygw-cosi-driver
 description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.3.5
+version: 0.3.6
 appVersion: "0.3.0"
 keywords:
   - cosi
@@ -18,3 +18,14 @@ sources:
 home: https://github.com/isac322/versitygw-cosi-driver
 annotations:
   artifacthub.io/license: MIT
+  artifacthub.io/changes: |
+    - kind: added
+      description: Values schema validation (values.schema.json)
+    - kind: added
+      description: Cosign keyless signing for chart OCI artifacts
+    - kind: added
+      description: Chart README for Artifact Hub display
+    - kind: added
+      description: Artifact Hub repository metadata and CI integration
+    - kind: changed
+      description: Credential Secret instructions now cover both Helm-managed and manual VersityGW setups
