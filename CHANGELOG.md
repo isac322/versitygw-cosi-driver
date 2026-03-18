@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CONTRIBUTING.md, SECURITY.md, and CODE_OF_CONDUCT.md for community guidelines.
+- Helm chart keywords and enriched description for Artifact Hub / `helm search`
+  discoverability.
+
+### Changed
+
+- README.md overhauled for promotion readiness: added "Why?" section, compatibility
+  matrix, end-to-end Quick Start with kubectl output, Mermaid architecture diagram,
+  troubleshooting guide, alternatives comparison, and Kustomize install instructions.
+- Helm Quick Start now uses OCI registry (`oci://ghcr.io/...`) instead of local path.
+
 ## [0.3.0] - 2026-03-16
 
 ### Added
@@ -86,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD pipeline with container image and Helm chart releases.
 - Dockerfile with multi-stage build and security hardening.
 
-[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/isac322/versitygw-cosi-driver/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/isac322/versitygw-cosi-driver/releases/tag/v0.1.0
+[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.3.0...HEAD
+[0.3.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.1.0...app-v0.2.0
+[0.1.0]: https://github.com/isac322/versitygw-cosi-driver/releases/tag/app-v0.1.0

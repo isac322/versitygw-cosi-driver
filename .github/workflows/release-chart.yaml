@@ -54,6 +54,14 @@ jobs:
         if: steps.check.outputs.exists != 'true'
         run: helm push versitygw-cosi-driver-*.tgz oci://ghcr.io/isac322/charts
 
+      - name: Push Artifact Hub metadata
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          oras push \
+            ghcr.io/isac322/charts/versitygw-cosi-driver:artifacthub.io \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            deploy/helm/versitygw-cosi-driver/artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+
       - name: Create GitHub Release
         if: steps.check.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2

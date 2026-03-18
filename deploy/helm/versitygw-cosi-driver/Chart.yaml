@@ -1,11 +1,20 @@
 apiVersion: v2
 name: versitygw-cosi-driver
-description: A COSI driver for versitygw object storage
+description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.3.0
+version: 0.3.1
 appVersion: "0.3.0"
+keywords:
+  - cosi
+  - s3
+  - object-storage
+  - versitygw
+  - bucket
+  - kubernetes
 maintainers:
   - name: isac322
 sources:
   - https://github.com/isac322/versitygw-cosi-driver
 home: https://github.com/isac322/versitygw-cosi-driver
+annotations:
+  artifacthub.io/license: MIT

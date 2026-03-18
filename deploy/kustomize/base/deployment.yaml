@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: versitygw-cosi-driver
+  labels:
+    app.kubernetes.io/name: versitygw-cosi-driver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: versitygw-cosi-driver
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: versitygw-cosi-driver
+    spec:
+      serviceAccountName: versitygw-cosi-driver
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: driver
+          image: ghcr.io/isac322/versitygw-cosi-driver:0.2.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - "--endpoint=/var/lib/cosi/cosi.sock"
+          env:
+            - name: DRIVER_NAME
+              value: "versitygw.cosi.dev"
+            - name: VERSITYGW_S3_ENDPOINT
+              value: "http://versitygw:7070"
+            - name: VERSITYGW_ADMIN_ENDPOINT
+              value: "http://versitygw:7071"
+            - name: VERSITYGW_REGION
+              value: "us-east-1"
+            - name: VERSITYGW_ADMIN_ACCESS
+              valueFrom:
+                secretKeyRef:
+                  name: versitygw-root-credentials
+                  key: rootAccessKeyId
+            - name: VERSITYGW_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: versitygw-root-credentials
+                  key: rootSecretAccessKey
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/cosi
+
+        - name: sidecar
+          image: registry.k8s.io/sig-storage/objectstorage-sidecar:v0.2.2
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - "--driver-addr=unix:///var/lib/cosi/cosi.sock"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/cosi
+
+      volumes:
+        - name: socket-dir
+          emptyDir: {}

@@ -1,0 +1,8 @@
+apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketAccessClass
+metadata:
+  name: versitygw
+  labels:
+    app.kubernetes.io/name: versitygw-cosi-driver
+driverName: versitygw.cosi.dev
+authenticationType: KEY
