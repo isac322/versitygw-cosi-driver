@@ -9,11 +9,12 @@ import (
 	"testing"
 
 	smithy "github.com/aws/smithy-go"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/versity/versitygw/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/isac322/versitygw-cosi-driver/internal/versitygw"
 )
 
 // mockAPIError implements smithy.APIError for testing.
@@ -26,6 +27,17 @@ func (e *mockAPIError) Error() string                 { return fmt.Sprintf("%s: 
 func (e *mockAPIError) ErrorCode() string             { return e.code }
 func (e *mockAPIError) ErrorMessage() string          { return e.message }
 func (e *mockAPIError) ErrorFault() smithy.ErrorFault { return smithy.FaultUnknown }
+
+func TestNewProvisionerServer(t *testing.T) {
+	t.Parallel()
+
+	client := &versitygw.Client{}
+	server := NewProvisionerServer(client, "http://localhost:7070", "us-east-1")
+
+	require.NotNil(t, server)
+	require.Equal(t, "http://localhost:7070", server.s3Endpoint)
+	require.Equal(t, "us-east-1", server.region)
+}
 
 func TestMapToGRPCError(t *testing.T) {
 	t.Parallel()
@@ -127,9 +139,9 @@ func TestMapToGRPCError(t *testing.T) {
 
 			st, ok := status.FromError(result)
 			require.True(t, ok, "expected gRPC status error")
-			assert.Equal(t, tt.wantCode, st.Code())
+			require.Equal(t, tt.wantCode, st.Code())
 			if tt.wantMsg != "" {
-				assert.Contains(t, st.Message(), tt.wantMsg)
+				require.Contains(t, st.Message(), tt.wantMsg)
 			}
 		})
 	}
@@ -188,10 +200,10 @@ func TestValidateBucketName(t *testing.T) {
 			// Verify it's a gRPC InvalidArgument error
 			st, ok := status.FromError(err)
 			require.True(t, ok, "expected gRPC status error")
-			assert.Equal(t, codes.InvalidArgument, st.Code())
+			require.Equal(t, codes.InvalidArgument, st.Code())
 
 			if tt.errSub != "" {
-				assert.Contains(t, st.Message(), tt.errSub)
+				require.Contains(t, st.Message(), tt.errSub)
 			}
 		})
 	}
@@ -204,7 +216,7 @@ func TestGenerateSecretKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// 20 random bytes → 40 hex characters
-	assert.Len(t, key, 40)
+	require.Len(t, key, 40)
 
 	_, err = hex.DecodeString(key)
 	require.NoError(t, err)
@@ -212,5 +224,5 @@ func TestGenerateSecretKey(t *testing.T) {
 	// Each call should produce a unique value
 	key2, err := generateSecretKey()
 	require.NoError(t, err)
-	assert.NotEqual(t, key, key2)
+	require.NotEqual(t, key, key2)
 }

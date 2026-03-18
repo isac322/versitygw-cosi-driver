@@ -9,9 +9,42 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNewClient(t *testing.T) {
+	t.Parallel()
+
+	c := NewClient("http://localhost:7070", "http://localhost:7071", "access", "secret")
+
+	require.NotNil(t, c)
+	require.Equal(t, "http://localhost:7071", c.adminEndpoint)
+	require.Equal(t, "us-east-1", c.region)
+	require.Equal(t, "access", c.creds.AccessKeyID)
+	require.Equal(t, "secret", c.creds.SecretAccessKey)
+	require.NotNil(t, c.s3Client)
+	require.NotNil(t, c.httpClient)
+}
+
+func TestNewClientWithRegion(t *testing.T) {
+	t.Parallel()
+
+	c := NewClientWithRegion("http://localhost:7070", "http://localhost:7071", "access", "secret", "ap-northeast-2")
+
+	require.NotNil(t, c)
+	require.Equal(t, "ap-northeast-2", c.region)
+	require.Equal(t, "http://localhost:7071", c.adminEndpoint)
+	require.Equal(t, "access", c.creds.AccessKeyID)
+	require.Equal(t, "secret", c.creds.SecretAccessKey)
+}
+
+func TestNewClientWithRegion_TrimsTrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	c := NewClientWithRegion("http://localhost:7070", "http://localhost:7071/", "access", "secret", "us-east-1")
+
+	require.Equal(t, "http://localhost:7071", c.adminEndpoint)
+}
 
 func TestPolicyPrincipalUnmarshalJSON(t *testing.T) {
 	t.Parallel()
@@ -94,7 +127,7 @@ func TestPolicyPrincipalUnmarshalJSON(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, p)
+			require.Equal(t, tt.want, p)
 		})
 	}
 }
@@ -109,7 +142,7 @@ func TestPolicyPrincipalMarshalJSON(t *testing.T) {
 	var roundtrip policyPrincipal
 	err = json.Unmarshal(data, &roundtrip)
 	require.NoError(t, err)
-	assert.Equal(t, p, roundtrip)
+	require.Equal(t, p, roundtrip)
 }
 
 func TestBucketPolicyStmtRoundtrip(t *testing.T) {
@@ -128,7 +161,7 @@ func TestBucketPolicyStmtRoundtrip(t *testing.T) {
 	var decoded BucketPolicyStmt
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	assert.Equal(t, stmt, decoded)
+	require.Equal(t, stmt, decoded)
 }
 
 func TestBucketPolicyStmtUnmarshalSinglePrincipal(t *testing.T) {
@@ -140,7 +173,7 @@ func TestBucketPolicyStmtUnmarshalSinglePrincipal(t *testing.T) {
 	var stmt BucketPolicyStmt
 	err := json.Unmarshal([]byte(input), &stmt)
 	require.NoError(t, err)
-	assert.Equal(t, policyPrincipal{"AWS": {"user1"}}, stmt.Principal)
+	require.Equal(t, policyPrincipal{"AWS": {"user1"}}, stmt.Principal)
 }
 
 func TestParseAdminError(t *testing.T) {
@@ -208,7 +241,7 @@ func TestParseAdminError(t *testing.T) {
 			}
 			err := c.parseAdminError(resp, tt.operation)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantSub)
+			require.Contains(t, err.Error(), tt.wantSub)
 		})
 	}
 }
@@ -232,10 +265,10 @@ func TestAdminRequest(t *testing.T) {
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.MethodPatch, gotMethod)
-		assert.NotEmpty(t, gotHeaders.Get("Authorization"))
-		assert.NotEmpty(t, gotHeaders.Get("X-Amz-Content-Sha256"))
-		assert.NotEmpty(t, gotHeaders.Get("X-Amz-Date"))
+		require.Equal(t, http.MethodPatch, gotMethod)
+		require.NotEmpty(t, gotHeaders.Get("Authorization"))
+		require.NotEmpty(t, gotHeaders.Get("X-Amz-Content-Sha256"))
+		require.NotEmpty(t, gotHeaders.Get("X-Amz-Date"))
 	})
 
 	t.Run("includes_query_params", func(t *testing.T) {
@@ -252,7 +285,7 @@ func TestAdminRequest(t *testing.T) {
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
-		assert.Contains(t, gotRawQuery, "access=testuser")
+		require.Contains(t, gotRawQuery, "access=testuser")
 	})
 
 	t.Run("sends_body_with_content_type", func(t *testing.T) {
@@ -272,8 +305,8 @@ func TestAdminRequest(t *testing.T) {
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
-		assert.Equal(t, "application/xml", gotContentType)
-		assert.Equal(t, body, gotBody)
+		require.Equal(t, "application/xml", gotContentType)
+		require.Equal(t, body, gotBody)
 	})
 
 	t.Run("nil_body_omits_content_type", func(t *testing.T) {
@@ -290,7 +323,7 @@ func TestAdminRequest(t *testing.T) {
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
-		assert.Empty(t, gotContentType)
+		require.Empty(t, gotContentType)
 	})
 }
 
