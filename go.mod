@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/versity/versitygw v1.3.1
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/container-object-storage-interface-spec v0.1.0
 )
