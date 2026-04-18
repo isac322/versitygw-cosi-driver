@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Setup: create kind cluster + install COSI + deploy VersityGW + build/load
+# driver image + Helm install driver + build/load verifier image + apply
+# cluster-scoped BucketClass/BucketAccessClass resources.
+#
+# Idempotent-ish: best-effort; re-running after partial failure may require
+# `./test/chainsaw/teardown.sh` first.
+set -euo pipefail
+
+CLUSTER="${KIND_CLUSTER:-versitygw-cosi-chainsaw}"
+DRIVER_IMAGE="versitygw-cosi-driver:e2e"
+VERIFIER_IMAGE="versitygw-cosi-verifier:e2e"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+echo ">>> [1/9] Create kind cluster '$CLUSTER'"
+kind create cluster --name "$CLUSTER" --config "$SCRIPT_DIR/kind-config.yaml"
+
+echo ">>> [2/9] Install COSI controller (v0.2.2)"
+"$SCRIPT_DIR/bootstrap/cosi-controller-install.sh"
+
+echo ">>> [3/9] Deploy VersityGW"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/versitygw.yaml"
+kubectl wait --for=condition=available --timeout=120s \
+  deployment/versitygw -n versitygw-system
+
+echo ">>> [4/9] Build driver image"
+docker build -t "$DRIVER_IMAGE" "$REPO_ROOT"
+
+echo ">>> [5/9] Load driver image into kind"
+kind load docker-image "$DRIVER_IMAGE" --name "$CLUSTER"
+
+echo ">>> [6/9] Build and load verifier image"
+docker build -t "$VERIFIER_IMAGE" "$SCRIPT_DIR/verifier"
+kind load docker-image "$VERIFIER_IMAGE" --name "$CLUSTER"
+
+echo ">>> [7/9] Copy root credentials to driver namespace"
+kubectl create namespace versitygw-cosi-driver-system --dry-run=client -o yaml | kubectl apply -f -
+# Re-emit with namespace rewritten.
+kubectl get secret versitygw-root-credentials -n versitygw-system -o yaml \
+  | sed 's/namespace: versitygw-system/namespace: versitygw-cosi-driver-system/' \
+  | grep -v '^  resourceVersion:\|^  uid:\|^  creationTimestamp:' \
+  | kubectl apply -f -
+
+echo ">>> [8/9] Install driver via Helm"
+helm upgrade --install versitygw-cosi-driver-e2e "$REPO_ROOT/deploy/helm/versitygw-cosi-driver" \
+  --namespace versitygw-cosi-driver-system \
+  --set driver.name=versitygw.cosi.dev \
+  --set driver.image.repository=versitygw-cosi-driver \
+  --set driver.image.tag=e2e \
+  --set driver.image.pullPolicy=Never \
+  --set versitygw.serviceName=versitygw.versitygw-system.svc.cluster.local \
+  --set versitygw.credentials.secretName=versitygw-root-credentials \
+  --set bucketClass.create=false \
+  --set bucketAccessClass.create=false \
+  --wait --timeout 120s
+
+echo ">>> [9/9] Apply shared cluster-scoped BucketClass/BucketAccessClass"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/bucketclass-default.yaml"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/bucketclass-retain.yaml"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/bucketclass-invalid.yaml"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/bucketaccessclass-default.yaml"
+kubectl apply -f "$SCRIPT_DIR/bootstrap/bucketaccessclass-iam.yaml"
+
+echo ""
+echo "Cluster '$CLUSTER' is ready for Chainsaw tests."
+echo "Run: make test-e2e"

@@ -1,0 +1,6 @@
+apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketAccessClass
+metadata:
+  name: versitygw-e2e-iam
+driverName: versitygw.cosi.dev
+authenticationType: IAM

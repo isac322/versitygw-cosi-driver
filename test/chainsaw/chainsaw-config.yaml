@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha2
+kind: Configuration
+metadata:
+  name: versitygw-cosi-driver-e2e
+spec:
+  timeouts:
+    apply: 30s
+    assert: 3m
+    error: 30s
+    delete: 30s
+    cleanup: 60s
+    exec: 60s
+  parallel: 8
+  fullName: true

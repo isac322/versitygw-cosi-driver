@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: versitygw-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: versitygw-root-credentials
+  namespace: versitygw-system
+type: Opaque
+stringData:
+  rootAccessKeyId: "admin"
+  rootSecretAccessKey: "admin-secret"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: versitygw
+  namespace: versitygw-system
+  labels:
+    app: versitygw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: versitygw
+  template:
+    metadata:
+      labels:
+        app: versitygw
+    spec:
+      containers:
+        - name: versitygw
+          image: versity/versitygw:latest
+          args:
+            - "--access"
+            - "admin"
+            - "--secret"
+            - "admin-secret"
+            - "--port"
+            - ":7070"
+            - "--admin-port"
+            - ":7071"
+            - "--iam-dir"
+            - "/data"
+            - "posix"
+            - "/data"
+          ports:
+            - name: s3
+              containerPort: 7070
+              protocol: TCP
+            - name: admin
+              containerPort: 7071
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 7070
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 7070
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: versitygw
+  namespace: versitygw-system
+  labels:
+    app: versitygw
+spec:
+  selector:
+    app: versitygw
+  ports:
+    - name: s3
+      port: 7070
+      targetPort: 7070
+      protocol: TCP
+    - name: admin
+      port: 7071
+      targetPort: 7071
+      protocol: TCP
