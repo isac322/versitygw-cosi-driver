@@ -49,13 +49,14 @@ test-e2e-setup:
 test-e2e: install-chainsaw
 	chainsaw test test/chainsaw/tests \
 	    --config test/chainsaw/chainsaw-config.yaml \
-	    --values test/chainsaw/values.yaml
+	    --values test/chainsaw/values.yaml \
+	    --parallel 8 --full-name
 
 test-e2e-recovery: install-chainsaw
 	chainsaw test test/chainsaw/recovery \
 	    --config test/chainsaw/chainsaw-config.yaml \
 	    --values test/chainsaw/values.yaml \
-	    --parallel 1
+	    --parallel 1 --full-name
 
 test-e2e-teardown:
 	./test/chainsaw/teardown.sh

@@ -1,0 +1,92 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-009-delete-bucketclaim-removes-bucket
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+    - name: rootAccessKey
+      value: ($values.rootAccessKey)
+    - name: rootSecretKey
+      value: ($values.rootSecretKey)
+  steps:
+    - name: create-claim
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+
+    - name: capture-bucket-name-then-delete
+      try:
+        - script:
+            content: |
+              set -euo pipefail
+              BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
+              kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
+              kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+
+    - name: verify-bucket-gone-from-versitygw
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: verify-gone
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        command: [/usr/local/bin/admin.sh]
+                        args: [head-bucket-not-found, $(BUCKET_NAME)]
+                        env:
+                          - name: ROOT_ACCESS_KEY
+                            value: ($rootAccessKey)
+                          - name: ROOT_SECRET_KEY
+                            value: ($rootSecretKey)
+                          - name: BUCKET_NAME
+                            valueFrom:
+                              configMapKeyRef:
+                                name: bucket-info
+                                key: name
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: verify-gone
+              status:
+                succeeded: 1

@@ -3,6 +3,9 @@ kind: Configuration
 metadata:
   name: versitygw-cosi-driver-e2e
 spec:
+  # Parallelism and full-name display are passed via CLI flags (--parallel,
+  # --full-name); they are not fields of the v1alpha2 Configuration schema
+  # in chainsaw v0.2.14.
   timeouts:
     apply: 30s
     assert: 3m
@@ -10,5 +13,3 @@ spec:
     delete: 30s
     cleanup: 60s
     exec: 60s
-  parallel: 8
-  fullName: true

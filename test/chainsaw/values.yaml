@@ -1,4 +1,9 @@
 driverName: versitygw.cosi.dev
+# Root credentials for VersityGW — hardcoded in bootstrap/versitygw.yaml.
+# Used by admin-mode verifier Jobs. Safe to check in because the entire
+# VersityGW stack is ephemeral per test run.
+rootAccessKey: admin
+rootSecretKey: admin-secret
 bucketClassDefault: versitygw-e2e
 bucketClassRetain: versitygw-e2e-retain
 bucketClassInvalid: versitygw-e2e-invalid
