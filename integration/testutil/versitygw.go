@@ -82,6 +82,61 @@ func StartVersityGW(t *testing.T) *VersityGWInstance {
 	return inst
 }
 
+// StartVersityGWSingleUser launches a VersityGW instance without --iam-dir (single-user mode).
+// In this mode, only the root admin account exists and admin operations like CreateUser
+// return ErrAdminMethodNotSupported.
+func StartVersityGWSingleUser(t *testing.T) *VersityGWInstance {
+	t.Helper()
+
+	versitygwBin, err := exec.LookPath("versitygw")
+	if err != nil {
+		t.Skip("versitygw binary not found in PATH; skipping integration test")
+	}
+
+	dataDir := t.TempDir()
+	s3Port := getFreePort(t)
+	adminPort := getFreePort(t)
+	accessKey := fmt.Sprintf("admin-%d", s3Port)
+	secretKey := fmt.Sprintf("secret-%d", s3Port)
+
+	// No --iam-dir flag: single-user mode
+	cmd := exec.Command(
+		versitygwBin,
+		"--access", accessKey,
+		"--secret", secretKey,
+		"--port", fmt.Sprintf(":%d", s3Port),
+		"--admin-port", fmt.Sprintf(":%d", adminPort),
+		"posix",
+		dataDir,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start versitygw (single-user): %v", err)
+	}
+
+	inst := &VersityGWInstance{
+		Endpoint:      fmt.Sprintf("http://127.0.0.1:%d", s3Port),
+		AdminEndpoint: fmt.Sprintf("http://127.0.0.1:%d", adminPort),
+		AccessKey:     accessKey,
+		SecretKey:     secretKey,
+		DataDir:       dataDir,
+		cmd:           cmd,
+	}
+
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	})
+
+	waitForReady(t, inst)
+
+	return inst
+}
+
 // getFreePort finds an available TCP port.
 func getFreePort(t *testing.T) int {
 	t.Helper()
@@ -116,7 +171,8 @@ func waitForReady(t *testing.T, inst *VersityGWInstance) {
 		o.UsePathStyle = true
 	})
 
-	deadline := time.Now().Add(10 * time.Second)
+	const startupTimeout = 30 * time.Second
+	deadline := time.Now().Add(startupTimeout)
 	for time.Now().Before(deadline) {
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		_, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
@@ -127,5 +183,5 @@ func waitForReady(t *testing.T, inst *VersityGWInstance) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	t.Fatalf("versitygw did not become ready within 10 seconds at %s", inst.Endpoint)
+	t.Fatalf("versitygw did not become ready within %v at %s", startupTimeout, inst.Endpoint)
 }
