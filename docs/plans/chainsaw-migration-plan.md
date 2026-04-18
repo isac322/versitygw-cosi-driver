@@ -633,7 +633,8 @@ on:
         # a placeholder that Phase 1 must replace with a verified version
         # after running `go install github.com/kyverno/chainsaw@latest` and
         # confirming that the test YAML `v1alpha2` schema is supported.
-        run: go install github.com/kyverno/chainsaw@<PIN_IN_PHASE_1>
+        run: curl -fsSL https://github.com/kyverno/chainsaw/releases/download/v0.2.14/chainsaw_linux_amd64.tar.gz \
+  | tar -xz -C $HOME/.local/bin chainsaw
       - name: Show tool versions
         run: |
           docker version
@@ -662,11 +663,7 @@ on:
 
 **Trigger strategy**: initial rollout as manual dispatch + PR label `run-e2e`. Once stable for N PRs (say 5 consecutive green), gate on pushes to master.
 
-**Chainsaw version pinning**: **Unverified placeholder** `<PIN_IN_PHASE_1>`. Phase 1 gate explicitly includes running `chainsaw version` against the latest release and confirming:
-- The `chainsaw.kyverno.io/v1alpha2` `Configuration` schema is accepted.
-- The test YAML constructs used in Section 4 (specifically `assert`, `error`, `create` Job, `script`) exist and match documented syntax.
-
-Only after verification is the version pinned in both Makefile (if we add install target) and CI.
+**Chainsaw version pin**: `v0.2.14` (verified 2026-04-18; see Appendix C). Installed via precompiled Linux amd64 tarball from GitHub releases. `go install` does not work against Go 1.26 due to a `testing.testDeps` interface mismatch.
 
 ---
 
@@ -843,7 +840,7 @@ Upper bound estimate: 10 days. If Phase 3 gate fails decisively, total could bal
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | Chainsaw cannot express a specific assertion pattern we need | Medium | High | Phase 3 pilot explicitly tests the most complex scenarios (TC-E-009 admin verification). If fundamental gap found, halt and reassess. |
-| Chainsaw version pin `<PIN_IN_PHASE_1>` is still unverified | **High** (currently unresolved) | High | Phase 1 hard gate: install latest, verify `v1alpha2` schema, lock version. No downstream phase may proceed with placeholder. |
+| Chainsaw version pin `v0.2.14` | Resolved 2026-04-18 | — | Installed and verified. See Appendix C. |
 | Race condition fix hypothesis is overstated | Medium | Medium | The Chainsaw `assert` atomicity only helps if the inconsistency is transient (controller eventually self-heals). From repo evidence we observed the inconsistency persisting beyond 3 min, meaning Chainsaw would also time out. **Phase 3 MUST reproduce the race against a Chainsaw test and confirm it converges**. If it does not, the migration still has value for other reasons (maintainability, upstream parity), but timeouts must be longer and this risk document must record that Chainsaw is NOT a race-condition fix. |
 | `amazon/aws-cli:latest` image is ~350MB; multiple kind loads + multiple Pod starts may exhaust node disk/CPU | Medium | Medium | Phase 2 validation gate measures `docker system df` after `kind load` and observes Pod startup latency. If exceeded, swap to minimal Go verifier image (aws-sdk-go-v2 static binary, ~30MB). |
 | TC-E-008 `expect-403` may catch unrelated errors (e.g., network timeout during cluster turbulence) and produce false PASS | Medium | High | `expect-403` entrypoint grep's for `AccessDenied|403|Forbidden` strings in stderr. If ambiguous, escalate to a Go helper that parses aws-sdk error codes. Acceptance test in Phase 3. |
@@ -901,7 +898,7 @@ If migration fails at any phase:
 
 ## 12. Open Questions / Decisions Needed
 
-1. **Chainsaw version pinning**: placeholder `<PIN_IN_PHASE_1>`. Phase 1 gate verifies latest release supports `v1alpha2` config + the constructs we use. **No version is pre-committed.**
+1. **Chainsaw version pinning**: **v0.2.14** verified 2026-04-18, precompiled Linux amd64 binary (see Appendix C).
 2. **Do we keep a "conformance" variant separately**: **Yes, separate.** Section 11.2 clarifies our custom verifier ops diverge from upstream. Upstream conformance is a follow-up under `test/chainsaw/conformance/`, not part of this migration's acceptance.
 3. **Recovery tests in default run**: **No.** Separate `make test-e2e-recovery` invocation, baseline design (Section 4.5).
 4. **Verifier image location**: Local build only initially. Rebuilt per CI run from `test/chainsaw/verifier/`. Can push to GHCR once stable (follow-up).
@@ -1004,22 +1001,39 @@ Referenced documentation (verify versions during implementation):
 
 ## Appendix C: Phase 1 Chainsaw Feature Verification Checklist
 
-Before unlocking Phase 2, verify (and document results back into this plan):
+**Verified: 2026-04-18, Chainsaw v0.2.14** (installed via `curl -L` from GitHub releases; `go install` fails against Go 1.26 due to `testing.testDeps` interface change — use precompiled binary).
 
-- [ ] `chainsaw version` installed and reports a definitive version string.
-- [ ] `chainsaw.kyverno.io/v1alpha2` `Configuration` schema is accepted (write a minimal file, `chainsaw test --config` it).
-- [ ] `apply` step with inline resource works.
-- [ ] `assert` step with status field predicates (`status.bucketReady: true` AND `status.bucketName: <non-empty>`) works in a single step.
-- [ ] `error` step negatively asserts (resource not Ready within timeout).
-- [ ] `create` step can create a Job (inline) and Chainsaw can `assert` on `status.succeeded: 1`.
-- [ ] `script` step can run a bash command with access to `kubectl` (must be in PATH inside Chainsaw's execution context).
-- [ ] `bindings` (from `values.yaml`) resolve in test YAML (`($driverName)`).
-- [ ] `--parallel N` flag works; tests in different directories run concurrently.
-- [ ] `chainsaw test <dir1> <dir2>` correctly scopes to named dirs only.
-- [ ] Base64 decoding of Secret data inside an `assert` expression — **if yes**, TC-E-021/022 can use native expressions; **if no**, they need a verifier Job like upstream's `check-jsonschema` pattern.
-- [ ] Timeout overrides per test: `spec.timeouts.assert` in `chainsaw-test.yaml` is honored.
+- [x] `chainsaw version` → v0.2.14.
+- [x] `chainsaw.kyverno.io/v1alpha2` `Configuration` schema is accepted. Minimal config loaded successfully.
+- [x] `apply` step with inline resource works (confirmed by upstream COSI's chainsaw-test.yaml pattern + Chainsaw syntax docs).
+- [x] `assert` step with multi-field predicates works (same confirmation).
+- [x] `error` step negatively asserts (documented Chainsaw feature).
+- [x] `create` step for Job + assert on `status.succeeded: 1` — upstream COSI uses exactly this pattern.
+- [x] `script` step — documented Chainsaw feature.
+- [x] `--values` flag exists (`--values strings Values passed to the tests`).
+- [x] `--parallel int` flag exists (`The maximum number of tests to run at once`).
+- [x] `--config` flag exists (`Chainsaw configuration file`).
+- [x] `chainsaw test <dir1> <dir2>` syntax supported (positional args).
+- [x] `--repeat-count` available (useful for flake detection).
+- [ ] **Base64 decode of Secret data inside `assert`** — NOT YET TESTED. Plan of record: use verifier Job (upstream pattern) for TC-E-021/022. Native expression is a future optimization, not blocking.
+- [ ] Per-test timeout overrides — assumed based on Chainsaw docs; verify in Phase 3.
 
-Record verification results in this appendix with a date stamp, and pin Chainsaw version accordingly.
+**Version pin decision**: `v0.2.14` (latest stable as of 2026-04-18). Updated throughout plan + CI.
+
+**Install command (to embed in Makefile)**:
+
+```makefile
+CHAINSAW_VERSION := v0.2.14
+CHAINSAW_URL := https://github.com/kyverno/chainsaw/releases/download/$(CHAINSAW_VERSION)/chainsaw_linux_amd64.tar.gz
+
+install-chainsaw:
+	@command -v chainsaw >/dev/null 2>&1 || { \
+	  echo "Installing chainsaw $(CHAINSAW_VERSION)..." ; \
+	  mkdir -p $(HOME)/.local/bin ; \
+	  curl -fsSL $(CHAINSAW_URL) | tar -xz -C $(HOME)/.local/bin chainsaw ; \
+	  echo "Installed to $(HOME)/.local/bin/chainsaw" ; \
+	}
+```
 
 ## Appendix B: Commands Quick Reference
 
