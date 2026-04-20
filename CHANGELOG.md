@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matrix, end-to-end Quick Start with kubectl output, Mermaid architecture diagram,
   troubleshooting guide, alternatives comparison, and Kustomize install instructions.
 - Helm Quick Start now uses OCI registry (`oci://ghcr.io/...`) instead of local path.
+- `make test-e2e-all` now dumps cluster diagnostics (pods, events, jobs,
+  failing-pod describes, chainsaw-namespace pod logs with `--previous`, and
+  driver/controller/versitygw logs) before teardown when tests fail, so
+  transient CI failures can be root-caused from cluster state that would
+  otherwise be lost. New `make test-e2e-diagnose` target wraps the script.
 
 ### Removed
 
@@ -58,6 +63,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sigs.k8s.io/e2e-framework`) in favor of the Chainsaw suite. `go.mod` no
   longer depends on `sigs.k8s.io/e2e-framework`, `k8s.io/api`, or
   `k8s.io/apimachinery`.
+- Redundant "Collect cluster diagnostics on failure" step from the CI
+  workflow; it ran after `test-e2e-all`'s teardown and produced only
+  "connection refused" output. Diagnostics now live in `test/chainsaw/diagnose.sh`
+  and run before teardown via the Makefile.
 
 ## [0.3.0] - 2026-03-16
 

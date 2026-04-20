@@ -110,18 +110,3 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           make test-e2e-all
-
-      - name: Collect cluster diagnostics on failure
-        if: failure()
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          echo '=== kind clusters ==='
-          kind get clusters || true
-          echo '=== all pods ==='
-          kubectl get pods -A -o wide || true
-          echo '=== recent events ==='
-          kubectl get events -A --sort-by=.lastTimestamp | tail -50 || true
-          echo '=== driver logs ==='
-          kubectl logs -n versitygw-cosi-driver-system -l app.kubernetes.io/name=versitygw-cosi-driver --all-containers --tail=200 || true
-          echo '=== cosi controller logs ==='
-          kubectl logs -n container-object-storage-system -l app.kubernetes.io/part-of=container-object-storage-interface --tail=200 || true

@@ -1,6 +1,6 @@
 .PHONY: build test integration-test docker-build clean lint lint-fix \
         install-chainsaw test-e2e-setup test-e2e test-e2e-recovery \
-        test-e2e-teardown test-e2e-all test-e2e-keep
+        test-e2e-teardown test-e2e-diagnose test-e2e-all test-e2e-keep
 
 BINARY  := versitygw-cosi-driver
 IMAGE   := versitygw-cosi-driver:latest
@@ -65,10 +65,17 @@ test-e2e-recovery: install-chainsaw
 test-e2e-teardown:
 	./test/chainsaw/teardown.sh
 
+test-e2e-diagnose:
+	KUBECONFIG=$(E2E_KUBECONFIG) ./test/chainsaw/diagnose.sh
+
 # test-e2e-all forces teardown even on failure so no cluster leaks across runs.
+# On failure, diagnose runs before teardown so cluster state is captured
+# while the API server is still reachable.
 test-e2e-all:
 	$(MAKE) test-e2e-setup
-	{ $(MAKE) test-e2e && $(MAKE) test-e2e-recovery ; } ; rc=$$? ; $(MAKE) test-e2e-teardown ; exit $$rc
+	{ $(MAKE) test-e2e && $(MAKE) test-e2e-recovery ; } ; rc=$$? ; \
+	if [ $$rc -ne 0 ]; then $(MAKE) test-e2e-diagnose || true ; fi ; \
+	$(MAKE) test-e2e-teardown ; exit $$rc
 
 # Diagnostic target: retains the cluster for inspection after test failures.
 # The cluster's kubeconfig lives at $(E2E_KUBECONFIG) — export it first:
