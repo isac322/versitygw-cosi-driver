@@ -22,6 +22,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/.e2e-kubeconfig}"
 
 echo ">>> [1/9] Create kind cluster '$CLUSTER' (KUBECONFIG=$KUBECONFIG)"
+# Delete any stale cluster with the same name (e.g. left behind by a
+# previous run that crashed before teardown). Makes the target idempotent
+# so `make test-e2e-all` can always start from a clean slate.
+kind delete cluster --name "$CLUSTER" --kubeconfig "$KUBECONFIG" 2>/dev/null || true
 kind create cluster --name "$CLUSTER" --config "$SCRIPT_DIR/kind-config.yaml" --kubeconfig "$KUBECONFIG"
 
 echo ">>> [2/9] Install COSI controller (v0.2.2)"

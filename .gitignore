@@ -133,9 +133,11 @@ go.work.sum
 # env file
 .env
 
-# E2E suite writes a project-local kubeconfig here so $HOME/.kube/config
-# is never touched (see test/chainsaw/setup.sh).
+# E2E suite writes project-local kubeconfigs here so $HOME/.kube/config is
+# never touched. One file per kind cluster — currently `-main` and
+# `-recovery` from the parallel suite split (see test/chainsaw/setup.sh).
 .e2e-kubeconfig
+.e2e-kubeconfig-*
 
 ### Vim template
 # Swap

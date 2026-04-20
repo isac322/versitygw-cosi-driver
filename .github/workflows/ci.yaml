@@ -80,12 +80,17 @@ jobs:
       - name: Lint Helm chart
         run: helm lint deploy/helm/versitygw-cosi-driver --set driver.name=ci-test.cosi.dev
 
-  e2e:
+  # The e2e suite is split across two jobs so the fast main tests and the
+  # slower (rollout-bound) recovery tests run on independent runners with
+  # independent kind clusters. Developers get the main-suite result before
+  # the recovery job finishes. Both jobs share the same installer steps;
+  # only the final `make` target differs.
+  e2e-main:
     runs-on: ubuntu-latest
-    # 8 min covers the optimized happy path (~4 min) with enough headroom for
-    # a one-off COSI race retry. A stuck job fails fast instead of eating the
-    # previous 30-minute ceiling.
-    timeout-minutes: 8
+    # Main suite: setup (~45s with warm GHA cache) + 25 tests at parallel=2
+    # (~140s) + teardown (~2s) ≈ 3m 10s. 5m leaves headroom for a COSI
+    # race retry on a single flaky test.
+    timeout-minutes: 5
     permissions:
       contents: read
       packages: read  # pull the prebuilt verifier image from GHCR
@@ -122,7 +127,53 @@ jobs:
       - name: Install Chainsaw
         run: make install-chainsaw
 
-      - name: Run E2E suite (setup + parallel + recovery + teardown)
+      - name: Run E2E main suite
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          make test-e2e-all
+          make test-e2e-main-only
+
+  e2e-recovery:
+    runs-on: ubuntu-latest
+    # Recovery suite: setup (~45s) + tc-e-050 (~130s) + tc-e-051 (~80s)
+    # + teardown (~2s) ≈ 4m 20s. 7m absorbs a cold-path reconcile outlier.
+    timeout-minutes: 7
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install Chainsaw
+        run: make install-chainsaw
+
+      - name: Run E2E recovery suite
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make test-e2e-recovery-only

@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the pre-rendered `cosi-v<version>-crds.yaml` /
   `cosi-v<version>-controller.yaml` manifests used by the e2e install
   path when bumping COSI versions.
+- `make test-e2e-main-only` and `make test-e2e-recovery-only` Makefile
+  targets that provision their own kind cluster (`versitygw-cosi-chainsaw-main`
+  / `-recovery`) with independent project-local kubeconfigs
+  (`.e2e-kubeconfig-main`, `.e2e-kubeconfig-recovery`). Enables running
+  either suite in isolation and backs the parallel `make test-e2e-all`.
 - `internal/config` package with `Config` struct, `Validate`, and `ApplyDefaults`
   for testable configuration validation (extracted from inline main.go logic).
 - Test pyramid documentation under `docs/tests/` defining unit, component,
@@ -109,6 +114,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cosi-controller-regen.sh` for version bumps.
 - CI e2e job `timeout-minutes` lowered from 30 to 8; a stuck job now
   surfaces within minutes instead of burning the previous ceiling.
+- Split the e2e suite across two kind clusters so the main tests and the
+  recovery tests run in parallel. Locally `make test-e2e-all` uses
+  `make -j2 test-e2e-main-only test-e2e-recovery-only`; in CI the single
+  `e2e` job is replaced by `e2e-main` (5m timeout) and `e2e-recovery`
+  (7m timeout) on independent runners. Locally measured: 335s wallclock
+  (5m 35s) vs 437s if run back-to-back. CI is expected at ~5m critical
+  path (main ~4m, recovery ~5m, parallel) vs ~8m single-job baseline.
+  `setup.sh` now deletes any stale cluster with the same name before
+  creating, making the target safe to re-run after crashes.
 
 ### Removed
 
