@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -78,3 +79,49 @@ jobs:
 
       - name: Lint Helm chart
         run: helm lint deploy/helm/versitygw-cosi-driver --set driver.name=ci-test.cosi.dev
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install Chainsaw
+        run: make install-chainsaw
+
+      - name: Run E2E suite (setup + parallel + recovery + teardown)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make test-e2e-all
+
+      - name: Collect cluster diagnostics on failure
+        if: failure()
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          echo '=== kind clusters ==='
+          kind get clusters || true
+          echo '=== all pods ==='
+          kubectl get pods -A -o wide || true
+          echo '=== recent events ==='
+          kubectl get events -A --sort-by=.lastTimestamp | tail -50 || true
+          echo '=== driver logs ==='
+          kubectl logs -n versitygw-cosi-driver-system -l app.kubernetes.io/name=versitygw-cosi-driver --all-containers --tail=200 || true
+          echo '=== cosi controller logs ==='
+          kubectl logs -n container-object-storage-system -l app.kubernetes.io/part-of=container-object-storage-interface --tail=200 || true
