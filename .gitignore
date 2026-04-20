@@ -133,6 +133,10 @@ go.work.sum
 # env file
 .env
 
+# E2E suite writes a project-local kubeconfig here so $HOME/.kube/config
+# is never touched (see test/chainsaw/setup.sh).
+.e2e-kubeconfig
+
 ### Vim template
 # Swap
 [._]*.s[a-v][a-z]
