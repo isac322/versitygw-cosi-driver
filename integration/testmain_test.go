@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	}
 
 	if _, err := exec.LookPath("versitygw"); err != nil {
-		cmd := exec.Command("go", "install", "github.com/versity/versitygw/cmd/versitygw@latest")
+		cmd := exec.Command("go", "install", "github.com/versity/versitygw/cmd/versitygw@v1.4.0")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {

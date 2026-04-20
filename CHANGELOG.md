@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bumped `github.com/versity/versitygw` from v1.3.1 to v1.4.0. No API changes in
+  the `auth` package, admin API routes, or CLI flags consumed by this driver.
+- Pinned versitygw version to 1.4.0 in integration tests
+  (`integration/testmain_test.go`) and Chainsaw E2E bootstrap
+  (`test/chainsaw/bootstrap/versitygw.yaml`), replacing previous `@latest` /
+  `latest` references for reproducible CI runs.
+- Fixed VersityGW compatibility entry in `README.md` from `0.x` to `1.4.x`.
 - `DriverCreateBucket` now rejects unsupported `parameters` in the request with
   `INVALID_ARGUMENT`. The driver does not accept any parameters.
 - Refactored `main.go` to use `internal/config.Config` struct for flag binding and
