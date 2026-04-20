@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: versitygw
-          image: versity/versitygw:1.4.0
+          image: versity/versitygw:v1.4.0
           args:
             - "--access"
             - "admin"
