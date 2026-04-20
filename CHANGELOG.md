@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   driver/controller/versitygw logs) before teardown when tests fail, so
   transient CI failures can be root-caused from cluster state that would
   otherwise be lost. New `make test-e2e-diagnose` target wraps the script.
+- Reduced chainsaw `--parallel` from 4 to 2 for `make test-e2e`. COSI
+  controller v0.2.2 optimistic-concurrency races (upstream #79/#227) reliably
+  pushed one arbitrary test per CI run past its 3-minute assertion timeout
+  at parallel 4; parallel 2 halves controller reconcile contention.
 
 ### Removed
 

@@ -50,11 +50,18 @@ E2E_KUBECONFIG := $(CURDIR)/.e2e-kubeconfig
 test-e2e-setup:
 	./test/chainsaw/setup.sh
 
+# --parallel is deliberately kept low. COSI controller v0.2.2 has optimistic-
+# concurrency races when reconciling multiple BucketClaim/BucketAccess objects
+# in parallel ("Operation cannot be fulfilled on bucketclaims ... the object
+# has been modified" loops, upstream #79/#227). Under --parallel 4 on GitHub
+# runners we routinely saw one test per run pushed past its 3-minute assertion
+# timeout; dropping to 2 keeps total run time acceptable while avoiding the
+# race. Revisit once the upstream controller improves.
 test-e2e: install-chainsaw
 	KUBECONFIG=$(E2E_KUBECONFIG) chainsaw test test/chainsaw/tests \
 	    --config test/chainsaw/chainsaw-config.yaml \
 	    --values test/chainsaw/values.yaml \
-	    --parallel 4 --full-name --skip-delete
+	    --parallel 2 --full-name --skip-delete
 
 test-e2e-recovery: install-chainsaw
 	KUBECONFIG=$(E2E_KUBECONFIG) chainsaw test test/chainsaw/recovery \
