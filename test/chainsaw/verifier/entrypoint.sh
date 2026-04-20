@@ -2,9 +2,10 @@
 # User-credentials verifier. Reads BucketInfo from a mounted COSI Secret and
 # performs the requested S3 operation. Exits 0 on success, non-zero on failure.
 #
-# Usage: entrypoint.sh <op> [args...]
+# Usage: entrypoint.sh [<op> [args...]]
 #
 # Ops:
+#   (no op) | idle                          # long-running idle (for kubectl exec)
 #   head-bucket
 #   put-object <key> <data>
 #   get-object <key> <expected-content>
@@ -13,6 +14,16 @@
 #   expect-nosuchbucket <op> [args...]     # inner op must fail with NoSuchBucket
 #   extract-access-key                     # write accessKeyID to /output/access-key
 set -eu
+
+# Idle mode: start the container as a long-running shim so recovery tests can
+# reuse it via `kubectl exec` instead of spawning a fresh Job per verification.
+# BucketInfo is re-parsed on each exec invocation below, so it doesn't need to
+# exist at container start time in this mode.
+case "${1:-}" in
+  ""|idle)
+    exec sleep infinity
+    ;;
+esac
 
 BI="${BUCKETINFO_PATH:-/conf/BucketInfo}"
 

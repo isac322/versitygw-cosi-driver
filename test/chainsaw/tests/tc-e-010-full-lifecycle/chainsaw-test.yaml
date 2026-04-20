@@ -137,26 +137,24 @@ spec:
       try:
         - script:
             content: |
-              set -eu
+              set +e
               BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}')
               BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
               kubectl create secret generic creds-snapshot -n $NAMESPACE --from-literal=placeholder=x
               kubectl patch secret creds-snapshot -n $NAMESPACE --type=json -p "[{\"op\":\"add\",\"path\":\"/data/BucketInfo\",\"value\":\"$BI\"}]"
               kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
+              # Delete BucketAccess and best-effort strip finalizers for the
+              # COSI v0.2.2 bug where Secret retains secret-protection after
+              # BucketAccess deletion (upstream #79/#227). The `error:`
+              # assertion below does the final state check and retries within
+              # the Chainsaw error timeout, so no polling loop is needed here.
               kubectl delete bucketaccess access -n $NAMESPACE --wait=false
-              sleep 5
-              # Workaround for COSI v0.2.2 finalizer bug: after BucketAccess is
-              # gone, Secret may still have secret-protection finalizer. Retry
-              # because controller can re-add the finalizer under parallel load.
-              for i in $(seq 1 15); do
-                kubectl get secret creds -n $NAMESPACE >/dev/null 2>&1 || break
-                kubectl patch bucketaccess access -n $NAMESPACE --type=merge \
-                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
-                kubectl patch secret creds -n $NAMESPACE --type=merge \
-                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
-                kubectl delete secret creds -n $NAMESPACE --ignore-not-found 2>/dev/null || true
-                sleep 1
-              done
+              kubectl patch bucketaccess access -n $NAMESPACE --type=merge \
+                -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+              kubectl patch secret creds -n $NAMESPACE --type=merge \
+                -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+              kubectl delete secret creds -n $NAMESPACE --ignore-not-found 2>/dev/null || true
+              exit 0
             env:
               - name: NAMESPACE
                 value: ($namespace)
@@ -212,7 +210,6 @@ spec:
             content: |
               set +e
               kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
-              sleep 3
               for b in $(kubectl get buckets -o name 2>/dev/null); do
                 owner=$(kubectl get $b -o jsonpath='{.spec.bucketClaim.namespace}' 2>/dev/null)
                 if [ "$owner" = "$NAMESPACE" ]; then

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `.github/workflows/release-verifier.yaml` builds and pushes the Chainsaw e2e
+  verifier image to GHCR (`ghcr.io/isac322/versitygw-cosi-driver/verifier`) on
+  master changes under `test/chainsaw/verifier/**`. `setup.sh` pulls the
+  resulting `:latest` tag, saving ~35s per e2e run over rebuilding locally.
+- `idle` mode (and default no-op first-arg behavior) in the verifier
+  `entrypoint.sh` that runs `sleep infinity`, enabling recovery tests to
+  provision one long-lived verifier Pod and drive S3 checks via
+  `kubectl exec` instead of spawning a fresh Job per verification.
+- `test/chainsaw/bootstrap/cosi-controller-regen.sh` script to regenerate
+  the pre-rendered `cosi-v<version>-crds.yaml` /
+  `cosi-v<version>-controller.yaml` manifests used by the e2e install
+  path when bumping COSI versions.
 - `internal/config` package with `Config` struct, `Validate`, and `ApplyDefaults`
   for testable configuration validation (extracted from inline main.go logic).
 - Test pyramid documentation under `docs/tests/` defining unit, component,
@@ -56,10 +68,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   driver/controller/versitygw logs) before teardown when tests fail, so
   transient CI failures can be root-caused from cluster state that would
   otherwise be lost. New `make test-e2e-diagnose` target wraps the script.
-- Reduced chainsaw `--parallel` from 4 to 2 for `make test-e2e`. COSI
-  controller v0.2.2 optimistic-concurrency races (upstream #79/#227) reliably
-  pushed one arbitrary test per CI run past its 3-minute assertion timeout
-  at parallel 4; parallel 2 halves controller reconcile contention.
+- Chainsaw `--parallel` is now driven by the `CHAINSAW_PARALLEL` Makefile
+  variable (defaults to `nproc` capped at 2). The cap is deliberately low:
+  local runs at parallel 8 tripped three tests on BucketAccess status
+  asserts (tc-e-008/044/060), parallel 4 still tripped tc-e-060 on a
+  re-run, and parallel 2 is the highest value observed reliably green
+  against COSI v0.2.2's optimistic-concurrency races (upstream #79/#227).
+  Smaller hosts fall through to their `nproc` value; revisit once the
+  upstream controller improves.
+- Chainsaw non-assert timeouts tightened: delete/error/exec 2m → 60s,
+  cleanup 3m → 90s. `assert` stays at 3m because the recovery tests'
+  post-restart `new-provisioning-works-after-restart` step reconciles
+  in 120–130s locally (cold-path COSI reconcile after driver restart).
+- `cleanup.sh` `MIN_ITERS` reduced from 5 to 2 (real finalizer-stranding
+  cases already loop on their own; 5 was adding ~3s × 25 tests of idle
+  work) and recovery-mode `kubectl rollout status --timeout` 60s → 30s.
+- Replaced fixed sleep-and-poll loops in `tc-e-002`, `tc-e-009`, and
+  `tc-e-010` with Chainsaw assert/error retries backed by the new bounded
+  timeouts. Happy path returns as soon as the state is reached instead of
+  burning a worst-case sleep budget.
+- Recovery `tc-e-050-driver-restart` now provisions a single long-running
+  verifier Pod and drives PutObject/GetObject checks via `kubectl exec`,
+  replacing three per-verification Jobs. Saves ~40s per run on the
+  Pod-scheduling + Job-status-reflection overhead.
+- Recovery `kubectl rollout status --timeout` tightened from 120s to 60s
+  (happy path is 10–20s), and recovery asserts given explicit 30s timeouts.
+- E2E driver image build in CI uses `docker buildx --cache-to=type=gha`
+  (via the existing Buildx builder added in the e2e job), saving ~45s on
+  cache hit. Local setup.sh falls back to plain `docker build` when no
+  Buildx builder is configured.
+- E2E setup now pulls the prebuilt verifier image from GHCR by default
+  (`ghcr.io/isac322/versitygw-cosi-driver/verifier:latest`), saving ~35s
+  vs rebuilding per run. Override with `VERIFIER_SRC=build` to force a
+  local rebuild; the pull path also falls back to a local build if the
+  image is unavailable.
+- COSI v0.2.2 CRDs and controller manifests are now pre-rendered and
+  committed under `test/chainsaw/bootstrap/cosi-v0.2.2-*.yaml`; the
+  install script applies them directly instead of doing `curl × 5 +
+  kubectl kustomize` on every run. Regeneration lives in
+  `cosi-controller-regen.sh` for version bumps.
+- CI e2e job `timeout-minutes` lowered from 30 to 8; a stuck job now
+  surfaces within minutes instead of burning the previous ceiling.
 
 ### Removed
 

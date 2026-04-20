@@ -14,6 +14,10 @@ spec:
       value: ($values.driverNamespace)
     - name: driverDeployment
       value: ($values.driverDeployment)
+  # A single long-running verifier Pod handles every PutObject/GetObject check
+  # via `kubectl exec`, instead of spawning a fresh Job per verification. Each
+  # Job/Pod cycle on kind costs ~8-15s, so the exec pattern saves ~40s across
+  # this test's three verification points.
   steps:
     - name: create-stack
       cleanup:
@@ -63,37 +67,36 @@ spec:
                 name: access
               status:
                 accessGranted: true
-        - create:
+        - apply:
             resource:
-              apiVersion: batch/v1
-              kind: Job
+              apiVersion: v1
+              kind: Pod
               metadata:
-                name: put-before-restart
+                name: verifier
               spec:
-                ttlSecondsAfterFinished: 60
-                backoffLimit: 0
-                template:
-                  spec:
-                    restartPolicy: Never
-                    containers:
-                      - name: verifier
-                        image: ($verifierImage)
-                        imagePullPolicy: Never
-                        args: [put-object, pre-restart, pre-data]
-                        volumeMounts: [{ name: creds, mountPath: /conf }]
-                    volumes:
-                      - name: creds
-                        secret:
-                          secretName: creds
-                          items: [{ key: BucketInfo, path: BucketInfo }]
-        - assert:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: put-before-restart
-              status:
-                succeeded: 1
+                restartPolicy: Never
+                containers:
+                  - name: verifier
+                    image: ($verifierImage)
+                    imagePullPolicy: Never
+                    # Default entrypoint with no args runs "sleep infinity"
+                    # (idle mode), enabling kubectl exec reuse below.
+                    volumeMounts: [{ name: creds, mountPath: /conf }]
+                volumes:
+                  - name: creds
+                    secret:
+                      secretName: creds
+                      items: [{ key: BucketInfo, path: BucketInfo }]
+        - script:
+            content: kubectl wait --for=condition=ready pod/verifier -n $NAMESPACE --timeout=30s
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - script:
+            content: kubectl exec -n $NAMESPACE verifier -- /usr/local/bin/entrypoint.sh put-object pre-restart pre-data
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
 
     - name: restart-driver
       try:
@@ -101,7 +104,7 @@ spec:
             content: |
               set -eu
               kubectl rollout restart deployment/$DEPLOY -n $DRIVER_NS
-              kubectl rollout status deployment/$DEPLOY -n $DRIVER_NS --timeout=120s
+              kubectl rollout status deployment/$DEPLOY -n $DRIVER_NS --timeout=60s
             env:
               - name: DEPLOY
                 value: ($driverDeployment)
@@ -129,68 +132,16 @@ spec:
 
     - name: existing-credentials-still-work-after-restart
       try:
-        - create:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: put-after-restart
-              spec:
-                ttlSecondsAfterFinished: 60
-                backoffLimit: 0
-                template:
-                  spec:
-                    restartPolicy: Never
-                    containers:
-                      - name: verifier
-                        image: ($verifierImage)
-                        imagePullPolicy: Never
-                        args: [put-object, post-restart, post-data]
-                        volumeMounts: [{ name: creds, mountPath: /conf }]
-                    volumes:
-                      - name: creds
-                        secret:
-                          secretName: creds
-                          items: [{ key: BucketInfo, path: BucketInfo }]
-        - create:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: get-after-restart
-              spec:
-                ttlSecondsAfterFinished: 60
-                backoffLimit: 0
-                template:
-                  spec:
-                    restartPolicy: Never
-                    containers:
-                      - name: verifier
-                        image: ($verifierImage)
-                        imagePullPolicy: Never
-                        args: [get-object, pre-restart, pre-data]
-                        volumeMounts: [{ name: creds, mountPath: /conf }]
-                    volumes:
-                      - name: creds
-                        secret:
-                          secretName: creds
-                          items: [{ key: BucketInfo, path: BucketInfo }]
-        - assert:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: put-after-restart
-              status:
-                succeeded: 1
-        - assert:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: get-after-restart
-              status:
-                succeeded: 1
+        - script:
+            content: kubectl exec -n $NAMESPACE verifier -- /usr/local/bin/entrypoint.sh put-object post-restart post-data
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - script:
+            content: kubectl exec -n $NAMESPACE verifier -- /usr/local/bin/entrypoint.sh get-object pre-restart pre-data
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
 
     - name: new-provisioning-works-after-restart
       try:

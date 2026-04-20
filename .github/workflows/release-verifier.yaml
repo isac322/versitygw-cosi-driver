@@ -1,0 +1,64 @@
+name: Release Verifier Image
+
+# Builds and pushes the e2e verifier image to GHCR so setup.sh can pull a
+# prebuilt image instead of rebuilding (~35s saving per CI run). Triggered on
+# changes under test/chainsaw/verifier/** and manual dispatch. Tag :latest
+# tracks master; sha-<short> pins each commit for reproducibility.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'test/chainsaw/verifier/**'
+      - '.github/workflows/release-verifier.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/verifier
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=versitygw-cosi-driver e2e verifier
+            org.opencontainers.image.description=Verifier image used by Chainsaw e2e tests
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: test/chainsaw/verifier
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

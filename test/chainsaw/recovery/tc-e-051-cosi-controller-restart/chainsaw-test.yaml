@@ -78,7 +78,7 @@ spec:
                 if kubectl get deployment "$DEPLOY" -n "$NS" >/dev/null 2>&1; then
                   echo "Restarting $NS/$DEPLOY"
                   kubectl rollout restart deployment/"$DEPLOY" -n "$NS"
-                  kubectl rollout status deployment/"$DEPLOY" -n "$NS" --timeout=120s
+                  kubectl rollout status deployment/"$DEPLOY" -n "$NS" --timeout=60s
                   FOUND=true
                   break
                 fi

@@ -33,13 +33,34 @@ kubectl wait --for=condition=available --timeout=120s \
   deployment/versitygw -n versitygw-system
 
 echo ">>> [4/9] Build driver image"
-docker build -t "$DRIVER_IMAGE" "$REPO_ROOT"
+# Use buildx + GitHub Actions cache on CI (saves ~45s on cache hit), fall back
+# to a plain docker build locally or when no buildx builder is configured.
+if [ "${GITHUB_ACTIONS:-}" = "true" ] && docker buildx inspect >/dev/null 2>&1; then
+  docker buildx build --load \
+    --cache-from=type=gha \
+    --cache-to=type=gha,mode=max \
+    -t "$DRIVER_IMAGE" "$REPO_ROOT"
+else
+  docker build -t "$DRIVER_IMAGE" "$REPO_ROOT"
+fi
 
 echo ">>> [5/9] Load driver image into kind"
 kind load docker-image "$DRIVER_IMAGE" --name "$CLUSTER"
 
-echo ">>> [6/9] Build and load verifier image"
-docker build -t "$VERIFIER_IMAGE" "$SCRIPT_DIR/verifier"
+echo ">>> [6/9] Load verifier image into kind"
+# Default: pull the prebuilt image from GHCR (release-verifier.yaml workflow
+# publishes it on master changes under test/chainsaw/verifier/**). Falls back
+# to a local build if the pull fails (first run before the image exists, or
+# an offline developer environment). Override with VERIFIER_SRC=build to
+# force a rebuild regardless.
+VERIFIER_SRC="${VERIFIER_SRC:-ghcr.io/isac322/versitygw-cosi-driver/verifier:latest}"
+if [ "$VERIFIER_SRC" = "build" ] || ! docker pull "$VERIFIER_SRC" 2>/dev/null; then
+  [ "$VERIFIER_SRC" = "build" ] \
+    || echo ">>> pull '$VERIFIER_SRC' failed, building locally"
+  docker build -t "$VERIFIER_IMAGE" "$SCRIPT_DIR/verifier"
+else
+  docker tag "$VERIFIER_SRC" "$VERIFIER_IMAGE"
+fi
 kind load docker-image "$VERIFIER_IMAGE" --name "$CLUSTER"
 
 echo ">>> [7/9] Copy root credentials to driver namespace"

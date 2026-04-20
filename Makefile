@@ -50,18 +50,23 @@ E2E_KUBECONFIG := $(CURDIR)/.e2e-kubeconfig
 test-e2e-setup:
 	./test/chainsaw/setup.sh
 
-# --parallel is deliberately kept low. COSI controller v0.2.2 has optimistic-
-# concurrency races when reconciling multiple BucketClaim/BucketAccess objects
-# in parallel ("Operation cannot be fulfilled on bucketclaims ... the object
-# has been modified" loops, upstream #79/#227). Under --parallel 4 on GitHub
-# runners we routinely saw one test per run pushed past its 3-minute assertion
-# timeout; dropping to 2 keeps total run time acceptable while avoiding the
-# race. Revisit once the upstream controller improves.
+# CHAINSAW_PARALLEL defaults to nproc capped at 2. COSI controller v0.2.2
+# has optimistic-concurrency races when reconciling multiple BucketClaim/
+# BucketAccess objects in parallel ("Operation cannot be fulfilled ... the
+# object has been modified" loops, upstream #79/#227). Empirical runs on a
+# 24-core workstation: parallel 8 pushed three tests past the
+# BucketAccess status-ready assertion, parallel 4 still tripped tc-e-060
+# (multiple-bucketaccess-same-claim) on one run; parallel 2 is the highest
+# value we observe as reliably green. Single-core hosts fall through to
+# their nproc value. Raise the cap once the upstream controller stops
+# fighting itself on concurrent BucketAccess reconciles.
+CHAINSAW_PARALLEL ?= $(shell n=$$(nproc 2>/dev/null || echo 2); if [ $$n -gt 2 ]; then echo 2; else echo $$n; fi)
+
 test-e2e: install-chainsaw
 	KUBECONFIG=$(E2E_KUBECONFIG) chainsaw test test/chainsaw/tests \
 	    --config test/chainsaw/chainsaw-config.yaml \
 	    --values test/chainsaw/values.yaml \
-	    --parallel 2 --full-name --skip-delete
+	    --parallel $(CHAINSAW_PARALLEL) --full-name --skip-delete
 
 test-e2e-recovery: install-chainsaw
 	KUBECONFIG=$(E2E_KUBECONFIG) chainsaw test test/chainsaw/recovery \
