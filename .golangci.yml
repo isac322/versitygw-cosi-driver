@@ -70,6 +70,22 @@ linters:
         - diagnostic
         - style
         - performance
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        # google.golang.org/grpc/status.Error/Errorf already produce the
+        # canonical gRPC status error — wrapping would break
+        # status.FromError / codes.Code extraction in gRPC clients.
+        - status.Error(
+        - status.Errorf(
 
   exclusions:
     generated: lax

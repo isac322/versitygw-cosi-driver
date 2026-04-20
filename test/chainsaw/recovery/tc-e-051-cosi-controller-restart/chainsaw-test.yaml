@@ -1,0 +1,147 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-051-cosi-controller-restart
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+  steps:
+    - name: create-stack
+      cleanup:
+        # Wait for the COSI central controller to be Available before
+        # stripping finalizers — a mid-restart controller cannot drive
+        # delete RPCs at all. The 3-arg variant of cleanup.sh auto-probes
+        # both known COSI controller locations so cleanup matches
+        # whichever layout the test body restarted (v0.2.x or older).
+        - script:
+            content: ../../cleanup.sh recovery $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+
+    - name: restart-cosi-controller
+      # Probe both possible upstream namespace/deployment pairs (v0.2.x used
+      # container-object-storage-system; older layouts used objectstorage-
+      # provisioner-system). Whichever exists is the one we restart.
+      try:
+        - script:
+            content: |
+              set -eu
+              CANDIDATES="
+                container-object-storage-system container-object-storage-controller
+                objectstorage-provisioner-system objectstorage-provisioner-controller-manager
+              "
+              FOUND=false
+              set -- $CANDIDATES
+              while [ $# -gt 0 ]; do
+                NS=$1 ; DEPLOY=$2 ; shift 2
+                if kubectl get deployment "$DEPLOY" -n "$NS" >/dev/null 2>&1; then
+                  echo "Restarting $NS/$DEPLOY"
+                  kubectl rollout restart deployment/"$DEPLOY" -n "$NS"
+                  kubectl rollout status deployment/"$DEPLOY" -n "$NS" --timeout=120s
+                  FOUND=true
+                  break
+                fi
+              done
+              if [ "$FOUND" != "true" ]; then
+                echo "Could not find COSI controller deployment in any known namespace" >&2
+                exit 1
+              fi
+
+    - name: existing-resources-remain-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+
+    - name: new-provisioning-works-after-restart
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim-new
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim-new
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-new
+              spec:
+                bucketClaimName: claim-new
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-new
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-new
+              status:
+                accessGranted: true

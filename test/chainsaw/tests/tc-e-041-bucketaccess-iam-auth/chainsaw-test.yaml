@@ -1,0 +1,64 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-041-bucketaccess-iam-auth-rejected
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassIAM
+      value: ($values.bucketAccessClassIAM)
+  steps:
+    - name: create-claim-then-iam-access
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassIAM)
+                credentialsSecretName: creds
+        # The driver rejects IAM auth with INVALID_ARGUMENT; BucketAccess
+        # must never reach accessGranted=true and no Secret must be created.
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+        - error:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: creds
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)

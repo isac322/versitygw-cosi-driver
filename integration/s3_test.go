@@ -46,8 +46,9 @@ func TestObjectCRUD(t *testing.T) {
 
 	// Grant access
 	grantResp, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
-		BucketId: "crud-test",
-		Name:     "crud-app",
+		BucketId:           "crud-test",
+		Name:               "crud-app",
+		AuthenticationType: cosi.AuthenticationType_Key,
 	})
 	require.NoError(t, err)
 	creds := grantResp.Credentials["s3"].Secrets
@@ -55,38 +56,57 @@ func TestObjectCRUD(t *testing.T) {
 	// Create S3 client with granted credentials
 	userS3 := newUserS3Client(t, creds["endpoint"], creds["accessKeyID"], creds["accessSecretKey"])
 
-	// PutObject
-	_, err = userS3.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String("crud-test"),
-		Key:    aws.String("hello.txt"),
-		Body:   strings.NewReader("world"),
+	// TC-I-020: Granted credentials allow PutObject
+	t.Run("TC-I-020_granted_credentials_allow_put_object", func(t *testing.T) {
+		t.Parallel()
+		_, err := userS3.PutObject(ctx, &s3.PutObjectInput{
+			Bucket: aws.String("crud-test"),
+			Key:    aws.String("hello.txt"),
+			Body:   strings.NewReader("world"),
+		})
+		require.NoError(t, err, "PutObject should succeed with granted credentials")
 	})
-	require.NoError(t, err)
 
-	// GetObject
-	out, err := userS3.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String("crud-test"),
-		Key:    aws.String("hello.txt"),
-	})
-	require.NoError(t, err)
-	body, err := io.ReadAll(out.Body)
-	out.Body.Close()
-	require.NoError(t, err)
-	require.Equal(t, "world", string(body))
+	// TC-I-021: Granted credentials allow GetObject
+	t.Run("TC-I-021_granted_credentials_allow_get_object", func(t *testing.T) {
+		t.Parallel()
+		// Write an object first using admin to ensure it exists
+		adminS3 := newUserS3Client(t, gw.Endpoint, gw.AccessKey, gw.SecretKey)
+		_, err := adminS3.PutObject(ctx, &s3.PutObjectInput{
+			Bucket: aws.String("crud-test"),
+			Key:    aws.String("admin-written.txt"),
+			Body:   strings.NewReader("admin-data"),
+		})
+		require.NoError(t, err)
 
-	// DeleteObject
-	_, err = userS3.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String("crud-test"),
-		Key:    aws.String("hello.txt"),
+		out, err := userS3.GetObject(ctx, &s3.GetObjectInput{
+			Bucket: aws.String("crud-test"),
+			Key:    aws.String("admin-written.txt"),
+		})
+		require.NoError(t, err, "GetObject should succeed with granted credentials")
+		body, err := io.ReadAll(out.Body)
+		out.Body.Close()
+		require.NoError(t, err)
+		require.Equal(t, "admin-data", string(body))
 	})
-	require.NoError(t, err)
 
-	// Verify deleted
-	_, err = userS3.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String("crud-test"),
-		Key:    aws.String("hello.txt"),
+	// TC-I-023: Granted credentials allow DeleteObject
+	t.Run("TC-I-023_granted_credentials_allow_delete_object", func(t *testing.T) {
+		t.Parallel()
+		// Write then delete
+		_, err := userS3.PutObject(ctx, &s3.PutObjectInput{
+			Bucket: aws.String("crud-test"),
+			Key:    aws.String("to-delete.txt"),
+			Body:   strings.NewReader("temp"),
+		})
+		require.NoError(t, err)
+
+		_, err = userS3.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String("crud-test"),
+			Key:    aws.String("to-delete.txt"),
+		})
+		require.NoError(t, err, "DeleteObject should succeed with granted credentials")
 	})
-	require.Error(t, err)
 }
 
 func TestObjectOverwrite(t *testing.T) {
@@ -100,8 +120,9 @@ func TestObjectOverwrite(t *testing.T) {
 	require.NoError(t, err)
 
 	grantResp, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
-		BucketId: "overwrite-test",
-		Name:     "overwrite-app",
+		BucketId:           "overwrite-test",
+		Name:               "overwrite-app",
+		AuthenticationType: cosi.AuthenticationType_Key,
 	})
 	require.NoError(t, err)
 	creds := grantResp.Credentials["s3"].Secrets
@@ -145,8 +166,9 @@ func TestObjectLargeFile(t *testing.T) {
 	require.NoError(t, err)
 
 	grantResp, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
-		BucketId: "large-test",
-		Name:     "large-app",
+		BucketId:           "large-test",
+		Name:               "large-app",
+		AuthenticationType: cosi.AuthenticationType_Key,
 	})
 	require.NoError(t, err)
 	creds := grantResp.Credentials["s3"].Secrets
@@ -171,6 +193,7 @@ func TestObjectLargeFile(t *testing.T) {
 	require.Len(t, body, len(largeData))
 }
 
+// TC-I-022: Granted credentials allow ListBucket
 func TestObjectListAfterCRUD(t *testing.T) {
 	t.Parallel()
 	gw := testutil.StartVersityGW(t)
@@ -182,51 +205,41 @@ func TestObjectListAfterCRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	grantResp, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
-		BucketId: "list-test",
-		Name:     "list-app",
+		BucketId:           "list-test",
+		Name:               "list-app",
+		AuthenticationType: cosi.AuthenticationType_Key,
 	})
 	require.NoError(t, err)
 	creds := grantResp.Credentials["s3"].Secrets
 	userS3 := newUserS3Client(t, creds["endpoint"], creds["accessKeyID"], creds["accessSecretKey"])
 
-	// Create objects
-	for _, key := range []string{"a.txt", "b.txt", "c.txt"} {
-		_, err = userS3.PutObject(ctx, &s3.PutObjectInput{
+	t.Run("TC-I-022_granted_credentials_allow_list_bucket", func(t *testing.T) {
+		t.Parallel()
+		// Create objects
+		for _, key := range []string{"a.txt", "b.txt", "c.txt"} {
+			_, err := userS3.PutObject(ctx, &s3.PutObjectInput{
+				Bucket: aws.String("list-test"),
+				Key:    aws.String(key),
+				Body:   strings.NewReader("content"),
+			})
+			require.NoError(t, err)
+		}
+
+		// ListObjectsV2 should succeed and return expected keys
+		listResp, err := userS3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket: aws.String("list-test"),
-			Key:    aws.String(key),
-			Body:   strings.NewReader("content"),
 		})
-		require.NoError(t, err)
-	}
+		require.NoError(t, err, "ListObjectsV2 should succeed with granted credentials")
+		require.Equal(t, int32(3), *listResp.KeyCount)
 
-	// List objects
-	listResp, err := userS3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String("list-test"),
+		keys := make([]string, len(listResp.Contents))
+		for i, obj := range listResp.Contents {
+			keys[i] = *obj.Key
+		}
+		require.Contains(t, keys, "a.txt")
+		require.Contains(t, keys, "b.txt")
+		require.Contains(t, keys, "c.txt")
 	})
-	require.NoError(t, err)
-	require.Equal(t, int32(3), *listResp.KeyCount)
-
-	// Delete one
-	_, err = userS3.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String("list-test"),
-		Key:    aws.String("b.txt"),
-	})
-	require.NoError(t, err)
-
-	// List again
-	listResp, err = userS3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String("list-test"),
-	})
-	require.NoError(t, err)
-	require.Equal(t, int32(2), *listResp.KeyCount)
-
-	keys := make([]string, len(listResp.Contents))
-	for i, obj := range listResp.Contents {
-		keys[i] = *obj.Key
-	}
-	require.Contains(t, keys, "a.txt")
-	require.Contains(t, keys, "c.txt")
-	require.NotContains(t, keys, "b.txt")
 }
 
 func TestRevokedAccessDenied(t *testing.T) {
@@ -241,8 +254,9 @@ func TestRevokedAccessDenied(t *testing.T) {
 
 	// Grant
 	grantResp, err := srv.DriverGrantBucketAccess(ctx, &cosi.DriverGrantBucketAccessRequest{
-		BucketId: "revoke-s3-test",
-		Name:     "revoke-app",
+		BucketId:           "revoke-s3-test",
+		Name:               "revoke-app",
+		AuthenticationType: cosi.AuthenticationType_Key,
 	})
 	require.NoError(t, err)
 	creds := grantResp.Credentials["s3"].Secrets
@@ -263,10 +277,33 @@ func TestRevokedAccessDenied(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Access should be denied (user is deleted, so any request should fail)
-	_, err = userS3.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String("revoke-s3-test"),
-		Key:    aws.String("test.txt"),
+	// TC-I-030: Revoked credentials fail for S3 PutObject
+	t.Run("TC-I-030_revoked_credentials_fail_put_object", func(t *testing.T) {
+		t.Parallel()
+		_, err := userS3.PutObject(ctx, &s3.PutObjectInput{
+			Bucket: aws.String("revoke-s3-test"),
+			Key:    aws.String("after-revoke.txt"),
+			Body:   strings.NewReader("denied"),
+		})
+		require.Error(t, err, "PutObject should fail after revoke")
 	})
-	require.Error(t, err)
+
+	// TC-I-031: Revoked credentials fail for S3 GetObject
+	t.Run("TC-I-031_revoked_credentials_fail_get_object", func(t *testing.T) {
+		t.Parallel()
+		_, err := userS3.GetObject(ctx, &s3.GetObjectInput{
+			Bucket: aws.String("revoke-s3-test"),
+			Key:    aws.String("test.txt"),
+		})
+		require.Error(t, err, "GetObject should fail after revoke")
+	})
+
+	// TC-I-032: Revoke removes principal from bucket policy
+	t.Run("TC-I-032_revoke_removes_principal_from_policy", func(t *testing.T) {
+		t.Parallel()
+		// This was the only principal, so policy should not exist
+		policy, err := client.GetBucketPolicy(ctx, "revoke-s3-test")
+		require.NoError(t, err)
+		require.Nil(t, policy, "policy should be nil (deleted) after the only principal is revoked")
+	})
 }

@@ -9,16 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `internal/config` package with `Config` struct, `Validate`, and `ApplyDefaults`
+  for testable configuration validation (extracted from inline main.go logic).
+- Test pyramid documentation under `docs/tests/` defining unit, component,
+  integration, and E2E test strategies with TC-U/TC-C/TC-I/TC-E identifiers.
+- Unit tests covering config validation, driver name behavior, bucket ID
+  generation, credential mapping, protocol construction, and request validation.
+- Component tests using real gRPC server + mocked S3/Admin HTTP servers to
+  verify RPC contract, idempotency, error codes, and cleanup behavior.
+- Integration tests covering S3/Admin API interactions with real VersityGW
+  process, including IAM auth rejection, single-user mode detection, and
+  connectivity failures.
+- E2E test suite using Kyverno Chainsaw (`test/chainsaw/`), aligning with
+  the upstream COSI conformance testing pattern. Covers 27 test cases across
+  lifecycle, secret validation, Pod consumption, error, recovery, and
+  multi-access scenarios. In-cluster verifier image bundles `amazon/aws-cli`
+  + `jq` for declarative S3 assertions.
+- `make test-e2e`, `make test-e2e-setup`, `make test-e2e-teardown`,
+  `make test-e2e-recovery`, `make test-e2e-all`, `make test-e2e-keep`, and
+  `make install-chainsaw` Makefile targets.
 - CONTRIBUTING.md, SECURITY.md, and CODE_OF_CONDUCT.md for community guidelines.
 - Helm chart keywords and enriched description for Artifact Hub / `helm search`
   discoverability.
 
 ### Changed
 
+- `DriverCreateBucket` now rejects unsupported `parameters` in the request with
+  `INVALID_ARGUMENT`. The driver does not accept any parameters.
+- Refactored `main.go` to use `internal/config.Config` struct for flag binding and
+  validation instead of inline variable declarations and ad-hoc checks.
+- `testutil.StartVersityGW` readiness timeout increased from 10s to 30s to reduce
+  flakiness when many instances start in parallel.
 - README.md overhauled for promotion readiness: added "Why?" section, compatibility
   matrix, end-to-end Quick Start with kubectl output, Mermaid architecture diagram,
   troubleshooting guide, alternatives comparison, and Kustomize install instructions.
 - Helm Quick Start now uses OCI registry (`oci://ghcr.io/...`) instead of local path.
+
+### Removed
+
+- Legacy Go E2E framework (`test/e2e/*.go`, 2262 lines based on
+  `sigs.k8s.io/e2e-framework`) in favor of the Chainsaw suite. `go.mod` no
+  longer depends on `sigs.k8s.io/e2e-framework`, `k8s.io/api`, or
+  `k8s.io/apimachinery`.
 
 ## [0.3.0] - 2026-03-16
 

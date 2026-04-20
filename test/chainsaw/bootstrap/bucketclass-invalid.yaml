@@ -1,0 +1,8 @@
+apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketClass
+metadata:
+  name: versitygw-e2e-invalid
+driverName: versitygw.cosi.dev
+deletionPolicy: Delete
+parameters:
+  invalidParam: "this-should-fail"

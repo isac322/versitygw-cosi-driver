@@ -1,0 +1,68 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-006-bucketaccess-status-reflects-account-id
+spec:
+  # The COSI v1alpha1 sidecar populates Secret.data.BucketInfo with the
+  # driver-returned accountId under spec.secretS3.accessKeyID. BucketAccess
+  # status fields beyond accessGranted vary by sidecar version, so we assert
+  # on the Secret's BucketInfo contents as the authoritative signal.
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+  steps:
+    - name: create-claim-access-and-assert-credentials
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+        - script:
+            content: |
+              set -eu
+              BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
+              echo "$BI" | jq -e '.spec.secretS3.accessKeyID != null and .spec.secretS3.accessKeyID != ""'
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)

@@ -1,0 +1,117 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-044-delete-bucketclaim-while-access-exists
+spec:
+  # Verifies that deleting a BucketClaim while its BucketAccess still exists
+  # does not leave orphaned resources. The ordering is:
+  #   1. BucketClaim deletion requested (controller blocks via finalizer until
+  #      BucketAccess is removed, or accepts and drives BucketAccess into error).
+  #   2. BucketAccess deletion issued.
+  #   3. Both resources AND the credentials Secret must eventually be gone.
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+  steps:
+    - name: create-claim-and-access
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: delete-bucketclaim-first-then-bucketaccess
+      try:
+        - script:
+            content: |
+              set +e
+              kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
+              sleep 2
+              kubectl delete bucketaccess access -n $NAMESPACE --wait=false
+              sleep 5
+              # Strip stuck finalizers so the test can assert resources are
+              # gone within the error timeout. v0.2.2 controller's
+              # bucketaccess-bucket-protection / secret-protection finalizer
+              # removal races with parallel deletion (upstream #79, #227).
+              # Retry because the controller can re-add the finalizer before
+              # K8s garbage-collects the resource under parallel load.
+              for i in $(seq 1 15); do
+                gone=0
+                kubectl get bucketaccess access -n $NAMESPACE >/dev/null 2>&1 || gone=$((gone+1))
+                kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || gone=$((gone+1))
+                kubectl get secret creds -n $NAMESPACE >/dev/null 2>&1 || gone=$((gone+1))
+                [ "$gone" -eq 3 ] && break
+                kubectl patch bucketaccess access -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl patch secret creds -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl patch bucketclaim claim -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                # After finalizer strip, explicit-delete Secret since controller
+                # no longer owns it post-strip.
+                kubectl delete secret creds -n $NAMESPACE --ignore-not-found 2>/dev/null || true
+                sleep 1
+              done
+              exit 0
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - error:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: creds
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access

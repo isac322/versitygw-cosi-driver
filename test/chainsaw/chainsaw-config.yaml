@@ -1,0 +1,20 @@
+apiVersion: chainsaw.kyverno.io/v1alpha2
+kind: Configuration
+metadata:
+  name: versitygw-cosi-driver-e2e
+spec:
+  # Parallelism and full-name display are passed via CLI flags (--parallel,
+  # --full-name); they are not fields of the v1alpha2 Configuration schema
+  # in chainsaw v0.2.14.
+  #
+  # Timeouts tuned for COSI v0.2.2 under parallel load. The controller has
+  # race conditions and finalizer processing is slow when many claims/accesses
+  # are created concurrently; generous per-step timeouts let individual
+  # reconciles win without cascading failures.
+  timeouts:
+    apply: 30s
+    assert: 3m
+    error: 2m
+    delete: 2m
+    cleanup: 3m
+    exec: 2m

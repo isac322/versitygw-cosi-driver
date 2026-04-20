@@ -94,18 +94,34 @@ func (s *ProvisionerServer) DriverCreateBucket(ctx context.Context, req *cosi.Dr
 		return nil, err
 	}
 
+	if len(req.GetParameters()) > 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "unsupported parameters: this driver does not accept any parameters")
+	}
+
 	if err := s.client.CreateBucket(ctx, req.GetName()); err != nil {
 		return nil, mapToGRPCError(err, "create bucket")
 	}
 
 	return &cosi.DriverCreateBucketResponse{
 		BucketId: req.GetName(),
+		BucketInfo: &cosi.Protocol{
+			Type: &cosi.Protocol_S3{
+				S3: &cosi.S3{
+					Region:           s.region,
+					SignatureVersion: cosi.S3SignatureVersion_S3V4,
+				},
+			},
+		},
 	}, nil
 }
 
 // DriverDeleteBucket deletes a bucket from versitygw.
 func (s *ProvisionerServer) DriverDeleteBucket(ctx context.Context, req *cosi.DriverDeleteBucketRequest) (*cosi.DriverDeleteBucketResponse, error) {
 	klog.V(4).InfoS("DriverDeleteBucket", "bucketId", req.GetBucketId())
+
+	if req.GetBucketId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "bucket_id is required")
+	}
 
 	if err := s.client.DeleteBucket(ctx, req.GetBucketId()); err != nil {
 		return nil, mapToGRPCError(err, "delete bucket")
@@ -118,6 +134,22 @@ func (s *ProvisionerServer) DriverDeleteBucket(ctx context.Context, req *cosi.Dr
 func (s *ProvisionerServer) DriverGrantBucketAccess(ctx context.Context, req *cosi.DriverGrantBucketAccessRequest) (*cosi.DriverGrantBucketAccessResponse, error) {
 	bucketID := req.GetBucketId()
 	klog.V(4).InfoS("DriverGrantBucketAccess", "bucketId", bucketID, "name", req.GetName())
+
+	if bucketID == "" {
+		return nil, status.Error(codes.InvalidArgument, "bucket_id is required")
+	}
+	if req.GetName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+
+	switch req.GetAuthenticationType() {
+	case cosi.AuthenticationType_Key:
+		// supported
+	case cosi.AuthenticationType_IAM:
+		return nil, status.Error(codes.InvalidArgument, "IAM authentication is not supported: VersityGW does not provide STS")
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unsupported authentication_type: %v", req.GetAuthenticationType())
+	}
 
 	accountName := "ba-" + uuid.New().String()[:8]
 	secret, err := generateSecretKey()
@@ -158,6 +190,13 @@ func (s *ProvisionerServer) DriverRevokeBucketAccess(ctx context.Context, req *c
 	bucketID := req.GetBucketId()
 	accountID := req.GetAccountId()
 	klog.V(4).InfoS("DriverRevokeBucketAccess", "bucketId", bucketID, "accountId", accountID)
+
+	if bucketID == "" {
+		return nil, status.Error(codes.InvalidArgument, "bucket_id is required")
+	}
+	if accountID == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_id is required")
+	}
 
 	// Remove this user's principal from the bucket policy
 	if err := s.client.RemoveBucketPolicyPrincipal(ctx, bucketID, accountID); err != nil {

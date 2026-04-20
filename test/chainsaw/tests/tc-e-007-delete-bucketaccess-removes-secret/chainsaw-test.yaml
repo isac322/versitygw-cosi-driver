@@ -1,0 +1,134 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-007-delete-bucketaccess-removes-secret
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+    - name: rootAccessKey
+      value: ($values.rootAccessKey)
+    - name: rootSecretKey
+      value: ($values.rootSecretKey)
+  steps:
+    - name: create-claim-and-access
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: extract-access-key-then-delete-access
+      # Snapshot accessKeyID into a ConfigMap, then delete the BucketAccess.
+      try:
+        - script:
+            content: |
+              set -eu
+              BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
+              ACCESS=$(echo "$BI" | jq -r '.spec.secretS3.accessKeyID')
+              kubectl create configmap saved-access -n $NAMESPACE --from-literal=key="$ACCESS"
+              kubectl delete bucketaccess access -n $NAMESPACE --wait=false
+              sleep 5
+              # Workaround: strip finalizers then explicit-delete Secret. Retry
+              # because controller can re-add the finalizer under parallel load
+              # (upstream #79, #227).
+              for i in $(seq 1 15); do
+                kubectl get secret creds -n $NAMESPACE >/dev/null 2>&1 || break
+                kubectl patch bucketaccess access -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl patch secret creds -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl delete secret creds -n $NAMESPACE --ignore-not-found 2>/dev/null || true
+                sleep 1
+              done
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - error:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: creds
+
+    - name: verify-user-removed-from-versitygw
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: verify-user-absent
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        command: [/usr/local/bin/admin.sh]
+                        args: [assert-user-absent, $(ACCESS_KEY)]
+                        env:
+                          - name: ROOT_ACCESS_KEY
+                            value: ($rootAccessKey)
+                          - name: ROOT_SECRET_KEY
+                            value: ($rootSecretKey)
+                          - name: ACCESS_KEY
+                            valueFrom:
+                              configMapKeyRef:
+                                name: saved-access
+                                key: key
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: verify-user-absent
+              status:
+                succeeded: 1

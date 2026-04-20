@@ -1,0 +1,227 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-060-multiple-bucketaccess-same-claim
+spec:
+  # Full 4-way cross-read parity with Go E2E (test/e2e/multiaccess_test.go):
+  #   (1) Job a-put writes 'written-by-a' via creds-a (succeed)
+  #   (2) Job b-put writes 'written-by-b' via creds-b (succeed)
+  #   (3) Job b-read-a reads 'written-by-a' via creds-b (cross-read B→A)
+  #   (4) Job a-read-b reads 'written-by-b' via creds-a (cross-read A→B)
+  #   Also: Secrets creds-a and creds-b must have DIFFERENT accessKeyIDs.
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+  steps:
+    - name: create-claim-and-two-accesses
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-a
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-a
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-b
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-b
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-a
+              status:
+                accessGranted: true
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-b
+              status:
+                accessGranted: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: assert-distinct-access-keys
+      try:
+        - script:
+            content: |
+              set -eu
+              A=$(kubectl get secret creds-a -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d | jq -r '.spec.secretS3.accessKeyID')
+              B=$(kubectl get secret creds-b -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d | jq -r '.spec.secretS3.accessKeyID')
+              if [ -z "$A" ] || [ -z "$B" ] || [ "$A" = "$B" ]; then
+                echo "access keys must be non-empty and distinct: a='$A' b='$B'" >&2
+                exit 1
+              fi
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: a-writes-b-writes
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-put
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [put-object, written-by-a, data-from-a]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-a
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-put
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [put-object, written-by-b, data-from-b]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-b
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-put
+              status:
+                succeeded: 1
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-put
+              status:
+                succeeded: 1
+
+    - name: cross-reads
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-read-a
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [get-object, written-by-a, data-from-a]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-b
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-read-b
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [get-object, written-by-b, data-from-b]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-a
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-read-a
+              status:
+                succeeded: 1
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-read-b
+              status:
+                succeeded: 1
