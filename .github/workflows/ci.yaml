@@ -87,10 +87,12 @@ jobs:
   # only the final `make` target differs.
   e2e-main:
     runs-on: ubuntu-latest
-    # Main suite: setup (~45s with warm GHA cache) + 25 tests at parallel=2
-    # (~140s) + teardown (~2s) ≈ 3m 10s. 5m leaves headroom for a COSI
-    # race retry on a single flaky test.
-    timeout-minutes: 5
+    # CI 2 vCPU runners run each stage ~2x slower than a 24-core workstation,
+    # and a first-time PR pays full cold-cache penalties (Docker layer cache
+    # miss, GHCR verifier image not yet published). 12m covers the cold
+    # path and still fails much faster than the previous 30m ceiling;
+    # warm-cache runs land well under it.
+    timeout-minutes: 12
     permissions:
       contents: read
       packages: read  # pull the prebuilt verifier image from GHCR
@@ -134,9 +136,12 @@ jobs:
 
   e2e-recovery:
     runs-on: ubuntu-latest
-    # Recovery suite: setup (~45s) + tc-e-050 (~130s) + tc-e-051 (~80s)
-    # + teardown (~2s) ≈ 4m 20s. 7m absorbs a cold-path reconcile outlier.
-    timeout-minutes: 7
+    # Recovery's post-restart reconcile path is inherently slow on 2 vCPU
+    # runners (~130s + ~80s for tc-e-050 / tc-e-051 on a workstation,
+    # ~2x on CI), plus the same cold-cache setup as e2e-main. 15m gives
+    # enough headroom for both and for an outlier cold-reconcile while
+    # still bounding a runaway job well under the previous 30m.
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: read
