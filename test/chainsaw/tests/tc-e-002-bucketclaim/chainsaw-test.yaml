@@ -1,0 +1,55 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-002-bucketclaim-creates-bucket
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+  steps:
+    - name: create-bucketclaim-and-verify-bucket-crd
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - script:
+            content: |
+              set -euo pipefail
+              # Poll up to 30s for status.bucketName to be populated. v0.2.2
+              # controller sometimes reports bucketReady=true before writing
+              # bucketName in the same update (upstream #285).
+              for i in $(seq 1 15); do
+                BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}' 2>/dev/null)
+                [ -n "$BUCKET" ] && break
+                sleep 2
+              done
+              if [ -z "$BUCKET" ]; then
+                echo "bucketName never populated within 30s" >&2
+                exit 1
+              fi
+              kubectl get bucket "$BUCKET"
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)

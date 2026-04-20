@@ -105,7 +105,9 @@ All test code in this project MUST follow these conventions:
 - **Test function naming**: `Test<Function>_<Scenario>` or `Test<RPC>_<Scenario>`
 - **Subtests**: `t.Run("<scenario>", func(t *testing.T) { ... })`
 - **Integration tests**: use build tag `//go:build integration` or `testutil.StartVersityGW(t)` for per-test instances
-- **E2E tests**: use build tag `//go:build e2e`
+- **E2E tests**: declarative Kyverno Chainsaw YAML under `test/chainsaw/tests/`
+  (and `test/chainsaw/recovery/` for serial recovery tests). See
+  [e2e-tests.md](e2e-tests.md).
 
 ## How to Use These Documents
 

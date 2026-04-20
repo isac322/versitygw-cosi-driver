@@ -1,0 +1,232 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-050-driver-restart
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+    - name: driverNamespace
+      value: ($values.driverNamespace)
+    - name: driverDeployment
+      value: ($values.driverDeployment)
+  steps:
+    - name: create-stack
+      cleanup:
+        - script:
+            content: ../../cleanup.sh recovery $NAMESPACE $DRIVER_NS $DRIVER_DEPLOY
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+              - name: DRIVER_NS
+                value: ($driverNamespace)
+              - name: DRIVER_DEPLOY
+                value: ($driverDeployment)
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: put-before-restart
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [put-object, pre-restart, pre-data]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: put-before-restart
+              status:
+                succeeded: 1
+
+    - name: restart-driver
+      try:
+        - script:
+            content: |
+              set -euo pipefail
+              kubectl rollout restart deployment/$DEPLOY -n $DRIVER_NS
+              kubectl rollout status deployment/$DEPLOY -n $DRIVER_NS --timeout=120s
+            env:
+              - name: DEPLOY
+                value: ($driverDeployment)
+              - name: DRIVER_NS
+                value: ($driverNamespace)
+
+    - name: existing-resources-still-ready
+      try:
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+
+    - name: existing-credentials-still-work-after-restart
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: put-after-restart
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [put-object, post-restart, post-data]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: get-after-restart
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [get-object, pre-restart, pre-data]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: put-after-restart
+              status:
+                succeeded: 1
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: get-after-restart
+              status:
+                succeeded: 1
+
+    - name: new-provisioning-works-after-restart
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim-new
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim-new
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-new
+              spec:
+                bucketClaimName: claim-new
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-new
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-new
+              status:
+                accessGranted: true

@@ -1,0 +1,142 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-031-pod-getobject
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+    - name: rootAccessKey
+      value: ($values.rootAccessKey)
+    - name: rootSecretKey
+      value: ($values.rootSecretKey)
+  steps:
+    - name: create-claim-and-seed-object-via-admin
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - script:
+            content: |
+              set -euo pipefail
+              BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
+              kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-seed
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        command: [/usr/local/bin/admin.sh]
+                        args: [put-object, $(BUCKET_NAME), test-get-key, test-get-value-031]
+                        env:
+                          - name: ROOT_ACCESS_KEY
+                            value: ($rootAccessKey)
+                          - name: ROOT_SECRET_KEY
+                            value: ($rootSecretKey)
+                          - name: BUCKET_NAME
+                            valueFrom:
+                              configMapKeyRef:
+                                name: bucket-info
+                                key: name
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-seed
+              status:
+                succeeded: 1
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: create-access-and-get-object-from-pod
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: user-get
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [get-object, test-get-key, test-get-value-031]
+                        volumeMounts:
+                          - { name: creds, mountPath: /conf }
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds
+                          items:
+                            - { key: BucketInfo, path: BucketInfo }
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: user-get
+              status:
+                succeeded: 1

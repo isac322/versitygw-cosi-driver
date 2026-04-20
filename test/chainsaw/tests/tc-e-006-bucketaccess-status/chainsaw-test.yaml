@@ -1,17 +1,19 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-023-credentials-connect
+  name: tc-e-006-bucketaccess-status-reflects-account-id
 spec:
+  # The COSI v1alpha1 sidecar populates Secret.data.BucketInfo with the
+  # driver-returned accountId under spec.secretS3.accessKeyID. BucketAccess
+  # status fields beyond accessGranted vary by sidecar version, so we assert
+  # on the Secret's BucketInfo contents as the authoritative signal.
   bindings:
     - name: bucketClassDefault
       value: ($values.bucketClassDefault)
     - name: bucketAccessClassDefault
       value: ($values.bucketAccessClassDefault)
-    - name: verifierImage
-      value: ($values.verifierImage)
   steps:
-    - name: create-claim-and-access
+    - name: create-claim-access-and-assert-credentials
       try:
         - apply:
             resource:
@@ -49,13 +51,14 @@ spec:
                 name: access
               status:
                 accessGranted: true
-        - assert:
-            resource:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: creds
-              (data.BucketInfo != ''): true
+        - script:
+            content: |
+              set -euo pipefail
+              BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
+              echo "$BI" | jq -e '.spec.secretS3.accessKeyID != null and .spec.secretS3.accessKeyID != ""'
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
 
       cleanup:
         - script:
@@ -63,41 +66,3 @@ spec:
             env:
               - name: NAMESPACE
                 value: ($namespace)
-
-    - name: verify-head-bucket-via-user-credentials
-      try:
-        - create:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: verify-head-bucket
-              spec:
-                ttlSecondsAfterFinished: 60
-                backoffLimit: 0
-                template:
-                  spec:
-                    restartPolicy: Never
-                    containers:
-                      - name: verifier
-                        image: ($verifierImage)
-                        imagePullPolicy: Never
-                        args: [head-bucket]
-                        volumeMounts:
-                          - name: creds
-                            mountPath: /conf
-                    volumes:
-                      - name: creds
-                        secret:
-                          secretName: creds
-                          items:
-                            - key: BucketInfo
-                              path: BucketInfo
-        - assert:
-            resource:
-              apiVersion: batch/v1
-              kind: Job
-              metadata:
-                name: verify-head-bucket
-              status:
-                succeeded: 1

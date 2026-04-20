@@ -93,7 +93,10 @@ case "$OP" in
     done
     ;;
   expect-403)
-    expect_error_pattern 'AccessDenied|403|Forbidden' "$@"
+    # VersityGW may return 403 AccessDenied/Forbidden, but also
+    # SignatureDoesNotMatch, InvalidAccessKeyId, or XAdminNoSuchUser after
+    # account deletion. Accept any authentication/authorization failure.
+    expect_error_pattern 'AccessDenied|403|Forbidden|SignatureDoesNotMatch|InvalidAccessKeyId|XAdminNoSuchUser|InvalidAccessKeyID|NotAuthorized|401' "$@"
     ;;
   expect-nosuchbucket)
     expect_error_pattern 'NoSuchBucket|404|Not Found' "$@"

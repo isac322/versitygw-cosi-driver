@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-023-credentials-connect
+  name: tc-e-030-pod-putobject
 spec:
   bindings:
     - name: bucketClassDefault
@@ -10,8 +10,12 @@ spec:
       value: ($values.bucketAccessClassDefault)
     - name: verifierImage
       value: ($values.verifierImage)
+    - name: rootAccessKey
+      value: ($values.rootAccessKey)
+    - name: rootSecretKey
+      value: ($values.rootSecretKey)
   steps:
-    - name: create-claim-and-access
+    - name: create-stack
       try:
         - apply:
             resource:
@@ -49,13 +53,6 @@ spec:
                 name: access
               status:
                 accessGranted: true
-        - assert:
-            resource:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: creds
-              (data.BucketInfo != ''): true
 
       cleanup:
         - script:
@@ -64,14 +61,14 @@ spec:
               - name: NAMESPACE
                 value: ($namespace)
 
-    - name: verify-head-bucket-via-user-credentials
+    - name: pod-put-object
       try:
         - create:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: verify-head-bucket
+                name: user-put
               spec:
                 ttlSecondsAfterFinished: 60
                 backoffLimit: 0
@@ -82,22 +79,67 @@ spec:
                       - name: verifier
                         image: ($verifierImage)
                         imagePullPolicy: Never
-                        args: [head-bucket]
+                        args: [put-object, test-put-key, test-put-value]
                         volumeMounts:
-                          - name: creds
-                            mountPath: /conf
+                          - { name: creds, mountPath: /conf }
                     volumes:
                       - name: creds
                         secret:
                           secretName: creds
                           items:
-                            - key: BucketInfo
-                              path: BucketInfo
+                            - { key: BucketInfo, path: BucketInfo }
         - assert:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: verify-head-bucket
+                name: user-put
+              status:
+                succeeded: 1
+
+    - name: admin-verifies-object-exists
+      try:
+        - script:
+            content: |
+              set -euo pipefail
+              BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
+              kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-head-object
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        command: [/usr/local/bin/admin.sh]
+                        args: [head-object, $(BUCKET_NAME), test-put-key]
+                        env:
+                          - name: ROOT_ACCESS_KEY
+                            value: ($rootAccessKey)
+                          - name: ROOT_SECRET_KEY
+                            value: ($rootSecretKey)
+                          - name: BUCKET_NAME
+                            valueFrom:
+                              configMapKeyRef:
+                                name: bucket-info
+                                key: name
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-head-object
               status:
                 succeeded: 1

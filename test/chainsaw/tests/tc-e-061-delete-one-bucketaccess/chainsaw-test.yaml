@@ -1,0 +1,181 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-061-delete-one-bucketaccess-other-remains
+spec:
+  bindings:
+    - name: bucketClassDefault
+      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
+    - name: verifierImage
+      value: ($values.verifierImage)
+  steps:
+    - name: create-claim-and-two-accesses
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassDefault)
+                protocols: [s3]
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+                (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-a
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-a
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-b
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds-b
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-a
+              status:
+                accessGranted: true
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-b
+              status:
+                accessGranted: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+
+    - name: snapshot-a-creds-then-delete-access-a
+      try:
+        - script:
+            content: |
+              set -euo pipefail
+              BI=$(kubectl get secret creds-a -n $NAMESPACE -o jsonpath='{.data.BucketInfo}')
+              kubectl create secret generic creds-a-snapshot -n $NAMESPACE --from-literal=placeholder=x
+              kubectl patch secret creds-a-snapshot -n $NAMESPACE --type=json -p "[{\"op\":\"add\",\"path\":\"/data/BucketInfo\",\"value\":\"$BI\"}]"
+              kubectl delete bucketaccess access-a -n $NAMESPACE --wait=false
+              sleep 5
+              # Workaround: strip finalizers then explicit-delete Secret
+              # (upstream #79, #227). Retry because controller can re-add the
+              # finalizer under parallel load.
+              for i in $(seq 1 15); do
+                kubectl get secret creds-a -n $NAMESPACE >/dev/null 2>&1 || break
+                kubectl patch bucketaccess access-a -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl patch secret creds-a -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl delete secret creds-a -n $NAMESPACE --ignore-not-found 2>/dev/null || true
+                sleep 1
+              done
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+        - error:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: creds-a
+
+    - name: a-denied-b-still-works
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-put-denied
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [expect-403, put-object, denied-after-delete, data]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-a-snapshot
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-put-works
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        args: [put-object, still-works-b, data-b]
+                        volumeMounts: [{ name: creds, mountPath: /conf }]
+                    volumes:
+                      - name: creds
+                        secret:
+                          secretName: creds-b
+                          items: [{ key: BucketInfo, path: BucketInfo }]
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: a-put-denied
+              status:
+                succeeded: 1
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: b-put-works
+              status:
+                succeeded: 1
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access-b
+              status:
+                accessGranted: true

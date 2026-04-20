@@ -1,24 +1,24 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-001-bucketclass-creation
+  name: tc-e-004-bucketaccessclass-creation
 spec:
   bindings:
-    - name: bucketClassDefault
-      value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
     - name: driverName
       value: ($values.driverName)
   steps:
-    - name: assert-bucketclass-exists
+    - name: assert-bucketaccessclass-exists
       try:
         - assert:
             resource:
               apiVersion: objectstorage.k8s.io/v1alpha1
-              kind: BucketClass
+              kind: BucketAccessClass
               metadata:
-                name: ($bucketClassDefault)
+                name: ($bucketAccessClassDefault)
               driverName: ($driverName)
-              deletionPolicy: Delete
+              authenticationType: Key
       cleanup:
         - script:
             content: ../../cleanup.sh simple $NAMESPACE

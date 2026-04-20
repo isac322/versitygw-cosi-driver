@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-043-invalid-driver-parameters
+spec:
+  bindings:
+    - name: bucketClassInvalid
+      value: ($values.bucketClassInvalid)
+  steps:
+    - name: create-claim-with-invalid-params-bucketclass
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: ($bucketClassInvalid)
+                protocols: [s3]
+        # Driver rejects any parameters with INVALID_ARGUMENT, so the
+        # BucketClaim must never reach bucketReady=true.
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)

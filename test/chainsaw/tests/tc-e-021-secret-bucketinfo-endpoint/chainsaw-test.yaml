@@ -1,8 +1,11 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-023-credentials-connect
+  name: tc-e-021-secret-bucketinfo-endpoint
 spec:
+  # Decodes Secret.data.BucketInfo and asserts presence of endpoint + bucketName
+  # via a Job running jq. Mirrors the upstream COSI Chainsaw pattern of using
+  # a validator container rather than native base64 decoding in assertions.
   bindings:
     - name: bucketClassDefault
       value: ($values.bucketClassDefault)
@@ -11,7 +14,7 @@ spec:
     - name: verifierImage
       value: ($values.verifierImage)
   steps:
-    - name: create-claim-and-access
+    - name: create-stack
       try:
         - apply:
             resource:
@@ -49,13 +52,6 @@ spec:
                 name: access
               status:
                 accessGranted: true
-        - assert:
-            resource:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: creds
-              (data.BucketInfo != ''): true
 
       cleanup:
         - script:
@@ -64,14 +60,14 @@ spec:
               - name: NAMESPACE
                 value: ($namespace)
 
-    - name: verify-head-bucket-via-user-credentials
+    - name: validate-bucketinfo-fields
       try:
         - create:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: verify-head-bucket
+                name: validate-endpoint
               spec:
                 ttlSecondsAfterFinished: 60
                 backoffLimit: 0
@@ -79,25 +75,29 @@ spec:
                   spec:
                     restartPolicy: Never
                     containers:
-                      - name: verifier
+                      - name: validator
                         image: ($verifierImage)
                         imagePullPolicy: Never
-                        args: [head-bucket]
+                        command: [/bin/sh, -c]
+                        args:
+                          - |
+                            set -eu
+                            BI=/conf/BucketInfo
+                            jq -e '.spec.secretS3.endpoint != null and .spec.secretS3.endpoint != ""' "$BI"
+                            jq -e '.spec.bucketName != null and .spec.bucketName != ""' "$BI"
                         volumeMounts:
-                          - name: creds
-                            mountPath: /conf
+                          - { name: creds, mountPath: /conf }
                     volumes:
                       - name: creds
                         secret:
                           secretName: creds
                           items:
-                            - key: BucketInfo
-                              path: BucketInfo
+                            - { key: BucketInfo, path: BucketInfo }
         - assert:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: verify-head-bucket
+                name: validate-endpoint
               status:
                 succeeded: 1

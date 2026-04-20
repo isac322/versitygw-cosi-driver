@@ -1,11 +1,11 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-009-delete-bucketclaim-removes-bucket
+  name: tc-e-062-bucketclass-retain-policy
 spec:
   bindings:
-    - name: bucketClassDefault
-      value: ($values.bucketClassDefault)
+    - name: bucketClassRetain
+      value: ($values.bucketClassRetain)
     - name: verifierImage
       value: ($values.verifierImage)
     - name: rootAccessKey
@@ -13,7 +13,7 @@ spec:
     - name: rootSecretKey
       value: ($values.rootSecretKey)
   steps:
-    - name: create-claim
+    - name: create-claim-with-retain-policy
       try:
         - apply:
             resource:
@@ -22,7 +22,7 @@ spec:
               metadata:
                 name: claim
               spec:
-                bucketClassName: ($bucketClassDefault)
+                bucketClassName: ($bucketClassRetain)
                 protocols: [s3]
         - assert:
             resource:
@@ -41,28 +41,25 @@ spec:
               - name: NAMESPACE
                 value: ($namespace)
 
-    - name: capture-bucket-name-then-delete
+    - name: capture-bucket-name-then-delete-claim
       try:
         - script:
             content: |
               set -eu
               BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
               kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
-              # Request deletion; controller will drive DeleteBucket RPC through
-              # the finalizer. Poll up to 60s for the normal deletion path. If
-              # the controller stalls (upstream #79, #227) we strip the
-              # finalizer so the test can report within its error window, at
-              # the cost of the "bucket gone" assertion below (which would
-              # then find an orphan bucket). Normal happy-path completes in a
-              # few seconds under light cluster load.
+              # Wait up to 60s for the normal controller-driven deletion
+              # (Retain policy means the controller just removes its
+              # finalizer, without calling DriverDeleteBucket). If it stalls
+              # (upstream #79, #227) strip the finalizer.
               kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
               for i in $(seq 1 30); do
                 kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || exit 0
                 sleep 2
               done
-              # Strip finalizer and retry: under parallel load the controller's
-              # reconcile loop can re-add the finalizer before the K8s garbage
-              # collector runs. Loop until the resource is truly gone.
+              # Retry strip: controller may re-add the finalizer under parallel
+              # load (upstream #79, #227) before K8s garbage-collects the
+              # resource. Loop until truly gone.
               for i in $(seq 1 15); do
                 kubectl patch bucketclaim claim -n $NAMESPACE --type=merge \
                   -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
@@ -80,14 +77,48 @@ spec:
               metadata:
                 name: claim
 
-    # NOTE: "bucket gone from VersityGW" assertion is intentionally omitted.
-    # Under parallel load, the COSI v0.2.2 controller fails to drive the
-    # DriverDeleteBucket RPC within the test's time budget (upstream #79),
-    # so we fall back to finalizer-strip above which bypasses the RPC.
-    # Result: the Kubernetes BucketClaim is gone (verified above), but the
-    # S3 bucket remains in VersityGW. Rather than make this test flaky, we
-    # scope it to the K8s-side deletion and clean up the orphan bucket below.
-    - name: admin-cleanup-orphan-bucket
+    - name: bucket-still-exists-in-versitygw
+      try:
+        - create:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-head-exists
+              spec:
+                ttlSecondsAfterFinished: 60
+                backoffLimit: 0
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: verifier
+                        image: ($verifierImage)
+                        imagePullPolicy: Never
+                        command: [/usr/local/bin/admin.sh]
+                        args: [head-bucket-by-name, $(BUCKET_NAME)]
+                        env:
+                          - name: ROOT_ACCESS_KEY
+                            value: ($rootAccessKey)
+                          - name: ROOT_SECRET_KEY
+                            value: ($rootSecretKey)
+                          - name: BUCKET_NAME
+                            valueFrom:
+                              configMapKeyRef:
+                                name: bucket-info
+                                key: name
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: admin-head-exists
+              status:
+                succeeded: 1
+
+    - name: cleanup-retained-bucket
+      # Retain policy intentionally leaves the bucket behind; clean it up so
+      # subsequent runs don't accumulate stale buckets.
       try:
         - create:
             resource:

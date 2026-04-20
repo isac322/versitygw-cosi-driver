@@ -1,11 +1,13 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: tc-e-009-delete-bucketclaim-removes-bucket
+  name: tc-e-007-delete-bucketaccess-removes-secret
 spec:
   bindings:
     - name: bucketClassDefault
       value: ($values.bucketClassDefault)
+    - name: bucketAccessClassDefault
+      value: ($values.bucketAccessClassDefault)
     - name: verifierImage
       value: ($values.verifierImage)
     - name: rootAccessKey
@@ -13,7 +15,7 @@ spec:
     - name: rootSecretKey
       value: ($values.rootSecretKey)
   steps:
-    - name: create-claim
+    - name: create-claim-and-access
       try:
         - apply:
             resource:
@@ -33,6 +35,24 @@ spec:
               status:
                 bucketReady: true
                 (bucketName != ''): true
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              spec:
+                bucketClaimName: claim
+                bucketAccessClassName: ($bucketAccessClassDefault)
+                credentialsSecretName: creds
+        - assert:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketAccess
+              metadata:
+                name: access
+              status:
+                accessGranted: true
 
       cleanup:
         - script:
@@ -41,60 +61,47 @@ spec:
               - name: NAMESPACE
                 value: ($namespace)
 
-    - name: capture-bucket-name-then-delete
+    - name: extract-access-key-then-delete-access
+      # Snapshot accessKeyID into a ConfigMap, then delete the BucketAccess.
       try:
         - script:
             content: |
-              set -eu
-              BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
-              kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
-              # Request deletion; controller will drive DeleteBucket RPC through
-              # the finalizer. Poll up to 60s for the normal deletion path. If
-              # the controller stalls (upstream #79, #227) we strip the
-              # finalizer so the test can report within its error window, at
-              # the cost of the "bucket gone" assertion below (which would
-              # then find an orphan bucket). Normal happy-path completes in a
-              # few seconds under light cluster load.
-              kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
-              for i in $(seq 1 30); do
-                kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || exit 0
-                sleep 2
-              done
-              # Strip finalizer and retry: under parallel load the controller's
-              # reconcile loop can re-add the finalizer before the K8s garbage
-              # collector runs. Loop until the resource is truly gone.
+              set -euo pipefail
+              BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
+              ACCESS=$(echo "$BI" | jq -r '.spec.secretS3.accessKeyID')
+              kubectl create configmap saved-access -n $NAMESPACE --from-literal=key="$ACCESS"
+              kubectl delete bucketaccess access -n $NAMESPACE --wait=false
+              sleep 5
+              # Workaround: strip finalizers then explicit-delete Secret. Retry
+              # because controller can re-add the finalizer under parallel load
+              # (upstream #79, #227).
               for i in $(seq 1 15); do
-                kubectl patch bucketclaim claim -n $NAMESPACE --type=merge \
+                kubectl get secret creds -n $NAMESPACE >/dev/null 2>&1 || break
+                kubectl patch bucketaccess access -n $NAMESPACE --type=merge \
                   -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl patch secret creds -n $NAMESPACE --type=merge \
+                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+                kubectl delete secret creds -n $NAMESPACE --ignore-not-found 2>/dev/null || true
                 sleep 1
-                kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || exit 0
               done
-              exit 0
             env:
               - name: NAMESPACE
                 value: ($namespace)
         - error:
             resource:
-              apiVersion: objectstorage.k8s.io/v1alpha1
-              kind: BucketClaim
+              apiVersion: v1
+              kind: Secret
               metadata:
-                name: claim
+                name: creds
 
-    # NOTE: "bucket gone from VersityGW" assertion is intentionally omitted.
-    # Under parallel load, the COSI v0.2.2 controller fails to drive the
-    # DriverDeleteBucket RPC within the test's time budget (upstream #79),
-    # so we fall back to finalizer-strip above which bypasses the RPC.
-    # Result: the Kubernetes BucketClaim is gone (verified above), but the
-    # S3 bucket remains in VersityGW. Rather than make this test flaky, we
-    # scope it to the K8s-side deletion and clean up the orphan bucket below.
-    - name: admin-cleanup-orphan-bucket
+    - name: verify-user-removed-from-versitygw
       try:
         - create:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: admin-delete-bucket
+                name: verify-user-absent
               spec:
                 ttlSecondsAfterFinished: 60
                 backoffLimit: 0
@@ -106,22 +113,22 @@ spec:
                         image: ($verifierImage)
                         imagePullPolicy: Never
                         command: [/usr/local/bin/admin.sh]
-                        args: [delete-bucket-by-name, $(BUCKET_NAME)]
+                        args: [assert-user-absent, $(ACCESS_KEY)]
                         env:
                           - name: ROOT_ACCESS_KEY
                             value: ($rootAccessKey)
                           - name: ROOT_SECRET_KEY
                             value: ($rootSecretKey)
-                          - name: BUCKET_NAME
+                          - name: ACCESS_KEY
                             valueFrom:
                               configMapKeyRef:
-                                name: bucket-info
-                                key: name
+                                name: saved-access
+                                key: key
         - assert:
             resource:
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: admin-delete-bucket
+                name: verify-user-absent
               status:
                 succeeded: 1

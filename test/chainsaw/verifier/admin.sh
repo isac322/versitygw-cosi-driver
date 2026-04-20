@@ -60,8 +60,26 @@ case "$OP" in
     aws s3api put-object --endpoint-url "$S3" --bucket "$BUCKET" --key "$KEY" --body /tmp/body
     ;;
   delete-bucket-by-name)
+    # Idempotent: tc-e-009 / tc-e-062 call this to clean up a bucket that
+    # may or may not still exist, depending on whether the natural COSI
+    # delete path or the finalizer-strip fallback won the race under
+    # parallel load. NoSuchBucket is a success condition for cleanup.
     BUCKET="${1:?usage: delete-bucket-by-name <bucket>}"
-    aws s3api delete-bucket --endpoint-url "$S3" --bucket "$BUCKET"
+    set +e
+    ERR=$(aws s3api delete-bucket --endpoint-url "$S3" --bucket "$BUCKET" 2>&1)
+    RC=$?
+    set -e
+    if [ "$RC" -eq 0 ]; then
+      exit 0
+    fi
+    # Anchor to the AWS SDK's canonical NoSuchBucket marker; do NOT match
+    # bare "404" or "Not Found" (they'd swallow unrelated failures like
+    # proxy 404s or throttle responses).
+    if echo "$ERR" | grep -qE 'NoSuchBucket|The specified bucket does not exist'; then
+      exit 0
+    fi
+    echo "$ERR" >&2
+    exit "$RC"
     ;;
   list-users)
     # VersityGW admin API is SigV4-signed PATCH on $ADMIN.

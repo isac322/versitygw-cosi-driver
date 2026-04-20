@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tc-e-040-bucketclaim-nonexistent-class
+spec:
+  steps:
+    - name: create-claim-referencing-missing-class
+      try:
+        - apply:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              spec:
+                bucketClassName: nonexistent-class
+                protocols: [s3]
+        # `error` asserts that the resource NEVER matches the given state
+        # within the step's error timeout. A BucketClaim whose BucketClass
+        # does not exist should never reach bucketReady=true.
+        - error:
+            resource:
+              apiVersion: objectstorage.k8s.io/v1alpha1
+              kind: BucketClaim
+              metadata:
+                name: claim
+              status:
+                bucketReady: true
+
+      cleanup:
+        - script:
+            content: ../../cleanup.sh full $NAMESPACE
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
