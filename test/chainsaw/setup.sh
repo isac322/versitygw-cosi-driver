@@ -5,6 +5,11 @@
 #
 # Idempotent-ish: best-effort; re-running after partial failure may require
 # `./test/chainsaw/teardown.sh` first.
+#
+# Writes a project-local kubeconfig at $REPO_ROOT/.e2e-kubeconfig and
+# exports KUBECONFIG so kind/kubectl/helm/chainsaw do NOT touch
+# $HOME/.kube/config. Caller shells that want to interact with the test
+# cluster must `export KUBECONFIG=<repo>/.e2e-kubeconfig` first.
 set -euo pipefail
 
 CLUSTER="${KIND_CLUSTER:-versitygw-cosi-chainsaw}"
@@ -14,8 +19,10 @@ VERIFIER_IMAGE="versitygw-cosi-verifier:e2e"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo ">>> [1/9] Create kind cluster '$CLUSTER'"
-kind create cluster --name "$CLUSTER" --config "$SCRIPT_DIR/kind-config.yaml"
+export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/.e2e-kubeconfig}"
+
+echo ">>> [1/9] Create kind cluster '$CLUSTER' (KUBECONFIG=$KUBECONFIG)"
+kind create cluster --name "$CLUSTER" --config "$SCRIPT_DIR/kind-config.yaml" --kubeconfig "$KUBECONFIG"
 
 echo ">>> [2/9] Install COSI controller (v0.2.2)"
 "$SCRIPT_DIR/bootstrap/cosi-controller-install.sh"
