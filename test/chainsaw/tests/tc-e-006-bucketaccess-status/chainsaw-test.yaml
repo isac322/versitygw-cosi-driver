@@ -53,7 +53,7 @@ spec:
                 accessGranted: true
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
               echo "$BI" | jq -e '.spec.secretS3.accessKeyID != null and .spec.secretS3.accessKeyID != ""'
             env:

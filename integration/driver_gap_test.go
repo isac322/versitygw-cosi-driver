@@ -125,7 +125,8 @@ func TestPolicyAfterPartialRevoke(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, policy, "policy should still exist")
 
-	policyJSON, _ := json.Marshal(policy)
+	policyJSON, err := json.Marshal(policy)
+	require.NoError(t, err)
 	require.NotContains(t, string(policyJSON), resp1.AccountId,
 		"revoked user's principal should be removed from policy")
 	require.Contains(t, string(policyJSON), resp2.AccountId,

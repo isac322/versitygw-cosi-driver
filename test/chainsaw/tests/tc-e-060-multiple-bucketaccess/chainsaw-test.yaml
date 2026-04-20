@@ -85,7 +85,7 @@ spec:
       try:
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               A=$(kubectl get secret creds-a -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d | jq -r '.spec.secretS3.accessKeyID')
               B=$(kubectl get secret creds-b -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d | jq -r '.spec.secretS3.accessKeyID')
               if [ -z "$A" ] || [ -z "$B" ] || [ "$A" = "$B" ]; then

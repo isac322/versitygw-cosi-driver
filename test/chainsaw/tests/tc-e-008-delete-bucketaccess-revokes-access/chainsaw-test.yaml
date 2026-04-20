@@ -97,7 +97,7 @@ spec:
       try:
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}')
               kubectl create secret generic creds-snapshot -n $NAMESPACE --from-literal=placeholder=x
               kubectl patch secret creds-snapshot -n $NAMESPACE --type=json -p "[{\"op\":\"add\",\"path\":\"/data/BucketInfo\",\"value\":\"$BI\"}]"

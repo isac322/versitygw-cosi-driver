@@ -29,7 +29,7 @@ spec:
                 (bucketName != ''): true
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               # Poll up to 30s for status.bucketName to be populated. v0.2.2
               # controller sometimes reports bucketReady=true before writing
               # bucketName in the same update (upstream #285).

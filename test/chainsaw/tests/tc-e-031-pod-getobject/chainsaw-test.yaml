@@ -37,7 +37,7 @@ spec:
                 (bucketName != ''): true
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
               kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
             env:

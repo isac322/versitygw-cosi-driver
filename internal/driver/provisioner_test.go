@@ -272,7 +272,7 @@ func TestBucketIDGeneration(t *testing.T) {
 
 		// The driver uses bucket name as ID directly.
 		name := "my-test-bucket"
-		bucketID := name // BucketId = req.GetName()
+		bucketID := name
 		require.NotEmpty(t, bucketID)
 		// Verify it is a valid S3 bucket name
 		require.NoError(t, validateBucketName(bucketID))

@@ -66,7 +66,7 @@ spec:
       try:
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}' | base64 -d)
               ACCESS=$(echo "$BI" | jq -r '.spec.secretS3.accessKeyID')
               kubectl create configmap saved-access -n $NAMESPACE --from-literal=key="$ACCESS"

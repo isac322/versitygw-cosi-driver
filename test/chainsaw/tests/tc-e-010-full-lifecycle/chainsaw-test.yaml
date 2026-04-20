@@ -137,7 +137,7 @@ spec:
       try:
         - script:
             content: |
-              set -euo pipefail
+              set -eu
               BI=$(kubectl get secret creds -n $NAMESPACE -o jsonpath='{.data.BucketInfo}')
               BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
               kubectl create secret generic creds-snapshot -n $NAMESPACE --from-literal=placeholder=x

@@ -39,10 +39,10 @@ type mockS3Handler struct {
 	calls []s3Call
 
 	// Callbacks: return (statusCode, responseBody). Nil means 200 OK with empty body.
-	onCreateBucket      func(bucket string) (int, string)
-	onDeleteBucket      func(bucket string) (int, string)
-	onGetBucketPolicy   func(bucket string) (int, string)
-	onPutBucketPolicy   func(bucket, policy string) (int, string)
+	onCreateBucket       func(bucket string) (int, string)
+	onDeleteBucket       func(bucket string) (int, string)
+	onGetBucketPolicy    func(bucket string) (int, string)
+	onPutBucketPolicy    func(bucket, policy string) (int, string)
 	onDeleteBucketPolicy func(bucket string) (int, string)
 }
 
@@ -196,8 +196,8 @@ func (h *mockAdminHandler) getCalls() []adminCall {
 // --- Test Setup ---
 
 type testEnv struct {
-	srv      *driver.ProvisionerServer
-	s3Mock   *mockS3Handler
+	srv       *driver.ProvisionerServer
+	s3Mock    *mockS3Handler
 	adminMock *mockAdminHandler
 }
 
@@ -266,7 +266,7 @@ func TestDriverCreateBucket(t *testing.T) {
 		t.Parallel()
 		// Client.CreateBucket already handles BucketAlreadyOwnedByYou/BucketAlreadyExists as success
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusConflict, s3Error("BucketAlreadyOwnedByYou", "already owned")
 			},
 		}, &mockAdminHandler{})
@@ -287,7 +287,7 @@ func TestDriverCreateBucket(t *testing.T) {
 		// This means the driver CANNOT distinguish between idempotent success and conflict,
 		// which is a known limitation. For now, test the actual behavior.
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusConflict, s3Error("BucketAlreadyExists", "owned by another")
 			},
 		}, &mockAdminHandler{})
@@ -310,13 +310,13 @@ func TestDriverCreateBucket(t *testing.T) {
 		})
 
 		requireGRPCCode(t, err, codes.InvalidArgument)
-		require.Zero(t, len(env.s3Mock.getCalls()), "should not call S3 on validation failure")
+		require.Empty(t, env.s3Mock.getCalls(), "should not call S3 on validation failure")
 	})
 
 	t.Run("TC-C-014_s3_error_propagates", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusInternalServerError, s3Error("InternalError", "server error")
 			},
 		}, &mockAdminHandler{})
@@ -400,7 +400,7 @@ func TestDriverDeleteBucket(t *testing.T) {
 	t.Run("TC-C-021_idempotent_already_deleted", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onDeleteBucket: func(bucket string) (int, string) {
+			onDeleteBucket: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucket", "not found")
 			},
 		}, &mockAdminHandler{})
@@ -421,13 +421,13 @@ func TestDriverDeleteBucket(t *testing.T) {
 		})
 
 		requireGRPCCode(t, err, codes.InvalidArgument)
-		require.Zero(t, len(env.s3Mock.getCalls()))
+		require.Empty(t, env.s3Mock.getCalls())
 	})
 
 	t.Run("TC-C-023_s3_delete_failure_propagates", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onDeleteBucket: func(bucket string) (int, string) {
+			onDeleteBucket: func(_ string) (int, string) {
 				return http.StatusInternalServerError, s3Error("InternalError", "server error")
 			},
 		}, &mockAdminHandler{})
@@ -443,7 +443,7 @@ func TestDriverDeleteBucket(t *testing.T) {
 	t.Run("TC-C-024_non_empty_bucket", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onDeleteBucket: func(bucket string) (int, string) {
+			onDeleteBucket: func(_ string) (int, string) {
 				return http.StatusConflict, s3Error("BucketNotEmpty", "bucket is not empty")
 			},
 		}, &mockAdminHandler{})
@@ -464,11 +464,11 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-030_successful_grant", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		})
@@ -492,7 +492,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-031_admin_called_with_user_role", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
@@ -518,15 +518,15 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 		t.Parallel()
 		var capturedPolicy string
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
-			onPutBucketPolicy: func(bucket, policy string) (int, string) {
+			onPutBucketPolicy: func(_, policy string) (int, string) {
 				capturedPolicy = policy
 				return http.StatusOK, ""
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		})
@@ -541,7 +541,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 
 		// Verify the policy uses the access key ID (account name) as principal, not an ARN
 		require.NotEmpty(t, capturedPolicy)
-		var policy map[string]interface{}
+		var policy map[string]any
 		require.NoError(t, json.Unmarshal([]byte(capturedPolicy), &policy))
 		require.Contains(t, capturedPolicy, resp.AccountId)
 		require.NotContains(t, capturedPolicy, "arn:aws:iam")
@@ -550,11 +550,11 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-033_credentials_structure", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		})
@@ -581,11 +581,11 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 		// When CreateUser returns "user already exists" (HTTP 409 -> auth.ErrUserExists),
 		// the provisioner treats it as idempotent success and proceeds with policy setup.
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				// User already exists (conflict)
 				return http.StatusConflict, ""
 			},
@@ -614,11 +614,11 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 		// AlreadyExists for GrantBucketAccess name conflicts -- it proceeds with
 		// the grant regardless, because the account name is always unique.
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusConflict, ""
 			},
 		})
@@ -648,8 +648,8 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 
 		requireGRPCCode(t, err, codes.InvalidArgument)
 		requireMessageContains(t, err, "IAM")
-		require.Zero(t, len(env.adminMock.getCalls()), "should not call Admin API")
-		require.Zero(t, len(env.s3Mock.getCalls()), "should not call S3")
+		require.Empty(t, env.adminMock.getCalls(), "should not call Admin API")
+		require.Empty(t, env.s3Mock.getCalls(), "should not call S3")
 	})
 
 	t.Run("TC-C-037_unknown_auth_returns_invalid_argument", func(t *testing.T) {
@@ -694,7 +694,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-040_admin_create_failure_propagates", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusInternalServerError, ""
 			},
 		})
@@ -708,7 +708,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 		require.Error(t, err)
 		// Verify PutBucketPolicy was NOT called
 		for _, call := range env.s3Mock.getCalls() {
-			require.False(t, strings.Contains(call.Query, "policy"),
+			require.NotContains(t, call.Query, "policy",
 				"should not call PutBucketPolicy when CreateUser fails")
 		}
 	})
@@ -716,14 +716,14 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-041_policy_failure_triggers_user_cleanup", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
-			onPutBucketPolicy: func(bucket, policy string) (int, string) {
+			onPutBucketPolicy: func(_, _ string) (int, string) {
 				return http.StatusInternalServerError, s3Error("InternalError", "policy failed")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		})
@@ -756,7 +756,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 		callCount := 0
 
 		s3Handler := &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				mu.Lock()
 				defer mu.Unlock()
 				if callCount == 0 {
@@ -766,7 +766,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 				// Second grant: return the policy saved from the first grant
 				return http.StatusOK, lastPutPolicy
 			},
-			onPutBucketPolicy: func(bucket, policy string) (int, string) {
+			onPutBucketPolicy: func(_, policy string) (int, string) {
 				mu.Lock()
 				defer mu.Unlock()
 				lastPutPolicy = policy
@@ -775,7 +775,7 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 			},
 		}
 		adminHandler := &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		}
@@ -822,11 +822,11 @@ func TestDriverGrantBucketAccess(t *testing.T) {
 	t.Run("TC-C-043_parameters_passed_through", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onCreateUser: func(body string) (int, string) {
+			onCreateUser: func(_ string) (int, string) {
 				return http.StatusCreated, ""
 			},
 		})
@@ -890,12 +890,12 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 	t.Run("TC-C-051_idempotent_already_revoked", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				// No policy exists (already revoked)
 				return http.StatusNotFound, s3Error("NoSuchBucketPolicy", "no policy")
 			},
 		}, &mockAdminHandler{
-			onDeleteUser: func(access string) (int, string) {
+			onDeleteUser: func(_ string) (int, string) {
 				// User not found but that's OK (idempotent)
 				return http.StatusOK, ""
 			},
@@ -936,7 +936,7 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 	t.Run("TC-C-054_admin_delete_user_failure_propagates", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				// Policy exists with the principal; RemoveBucketPolicyPrincipal will delete it
 				policy := versitygw.BucketPolicy{
 					Version: "2012-10-17",
@@ -951,7 +951,7 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 				return http.StatusOK, string(data)
 			},
 		}, &mockAdminHandler{
-			onDeleteUser: func(access string) (int, string) {
+			onDeleteUser: func(_ string) (int, string) {
 				return http.StatusInternalServerError, ""
 			},
 		})
@@ -967,7 +967,7 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 	t.Run("TC-C-055_s3_get_bucket_policy_failure_propagates", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onGetBucketPolicy: func(bucket string) (int, string) {
+			onGetBucketPolicy: func(_ string) (int, string) {
 				return http.StatusInternalServerError, s3Error("InternalError", "server error")
 			},
 		}, &mockAdminHandler{})
@@ -997,7 +997,7 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 				data, _ := json.Marshal(policy)
 				return http.StatusOK, string(data)
 			},
-			onPutBucketPolicy: func(bucket, policy string) (int, string) {
+			onPutBucketPolicy: func(_, policy string) (int, string) {
 				capturedPolicy = policy
 				return http.StatusOK, ""
 			},
@@ -1031,7 +1031,7 @@ func TestDriverRevokeBucketAccess(t *testing.T) {
 				data, _ := json.Marshal(policy)
 				return http.StatusOK, string(data)
 			},
-			onDeleteBucketPolicy: func(bucket string) (int, string) {
+			onDeleteBucketPolicy: func(_ string) (int, string) {
 				deletePolicyCalled = true
 				return http.StatusNoContent, ""
 			},
@@ -1128,7 +1128,7 @@ func TestCrossCuttingConcerns(t *testing.T) {
 	t.Run("TC-C-060_context_cancellation_returns_canceled", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusOK, ""
 			},
 		}, &mockAdminHandler{})
@@ -1146,7 +1146,7 @@ func TestCrossCuttingConcerns(t *testing.T) {
 	t.Run("TC-C-061_context_deadline_exceeded_returns_deadline_exceeded", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusOK, ""
 			},
 		}, &mockAdminHandler{})
@@ -1217,7 +1217,7 @@ func TestCrossCuttingConcerns(t *testing.T) {
 	t.Run("TC-C-063_concurrent_create_bucket_same_name", func(t *testing.T) {
 		t.Parallel()
 		env := setupComponentTest(t, &mockS3Handler{
-			onCreateBucket: func(bucket string) (int, string) {
+			onCreateBucket: func(_ string) (int, string) {
 				return http.StatusOK, ""
 			},
 		}, &mockAdminHandler{})
@@ -1265,7 +1265,7 @@ func TestCrossCuttingConcerns(t *testing.T) {
 		// to revoke access before deleting the bucket. This test documents
 		// that the driver deletes the bucket successfully regardless.
 		env := setupComponentTest(t, &mockS3Handler{
-			onDeleteBucket: func(bucket string) (int, string) {
+			onDeleteBucket: func(_ string) (int, string) {
 				return http.StatusNoContent, ""
 			},
 		}, &mockAdminHandler{})
