@@ -80,9 +80,21 @@ jobs:
       - name: Lint Helm chart
         run: helm lint deploy/helm/versitygw-cosi-driver --set driver.name=ci-test.cosi.dev
 
-  e2e:
+  # The e2e suite is split across two jobs so the fast main tests and the
+  # slower (rollout-bound) recovery tests run on independent runners with
+  # independent kind clusters. Developers get the main-suite result before
+  # the recovery job finishes. Both jobs share the same installer steps;
+  # only the final `make` target differs.
+  e2e-main:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Overall job cap. The actual suite runs under nick-fields/retry with
+    # its own per-attempt timeout (10m) and max 2 attempts, so the worst
+    # realistic wall-clock is ~21m (two 10m attempts + setup overhead).
+    # Warm-cache successful runs finish in ~5-7m.
+    timeout-minutes: 22
+    permissions:
+      contents: read
+      packages: read  # pull the prebuilt verifier image from GHCR
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -91,6 +103,16 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install kind
         uses: helm/kind-action@v1
@@ -106,7 +128,72 @@ jobs:
       - name: Install Chainsaw
         run: make install-chainsaw
 
-      - name: Run E2E suite (setup + parallel + recovery + teardown)
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          make test-e2e-all
+      # COSI v0.2.2 has an optimistic-concurrency race on BucketAccess
+      # reconciles (upstream #79/#227) that occasionally pushes a single
+      # test past its assert budget on 2 vCPU runners. One retry is enough
+      # in practice; a real regression fails both attempts. setup.sh tears
+      # down any stale cluster at the top, so the retry starts clean.
+      - name: Run E2E main suite
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            make test-e2e-main-only
+
+  e2e-recovery:
+    runs-on: ubuntu-latest
+    # Overall job cap. The actual suite runs under nick-fields/retry with
+    # its own per-attempt timeout (12m, covering cold-cache + recovery's
+    # inherent ~200s reconcile path) and max 2 attempts. Warm-cache
+    # successful runs finish in ~7m.
+    timeout-minutes: 26
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install Chainsaw
+        run: make install-chainsaw
+
+      # Same upstream COSI race can nudge the recovery suite's
+      # new-provisioning-works-after-restart assert past its budget on
+      # 2 vCPU runners. One retry absorbs the flake without hiding a real
+      # regression (which fails both attempts).
+      - name: Run E2E recovery suite
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 12
+          max_attempts: 2
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            make test-e2e-recovery-only

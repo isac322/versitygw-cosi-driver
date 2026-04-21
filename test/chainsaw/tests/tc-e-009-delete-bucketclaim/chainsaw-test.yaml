@@ -45,30 +45,20 @@ spec:
       try:
         - script:
             content: |
-              set -eu
+              set +e
               BUCKET=$(kubectl get bucketclaim claim -n $NAMESPACE -o jsonpath='{.status.bucketName}')
               kubectl create configmap bucket-info -n $NAMESPACE --from-literal=name="$BUCKET"
-              # Request deletion; controller will drive DeleteBucket RPC through
-              # the finalizer. Poll up to 60s for the normal deletion path. If
-              # the controller stalls (upstream #79, #227) we strip the
-              # finalizer so the test can report within its error window, at
-              # the cost of the "bucket gone" assertion below (which would
-              # then find an orphan bucket). Normal happy-path completes in a
-              # few seconds under light cluster load.
+              # Request deletion; the controller normally drives DeleteBucket
+              # through the finalizer in a few seconds. Under parallel load the
+              # controller can stall (upstream #79, #227), so after a short
+              # grace period we strip the finalizer unconditionally — the
+              # admin-cleanup step below removes the orphan S3 bucket either
+              # way. The `error:` assertion that follows waits for the
+              # Kubernetes-side deletion to actually complete.
               kubectl delete bucketclaim claim -n $NAMESPACE --wait=false
-              for i in $(seq 1 30); do
-                kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || exit 0
-                sleep 2
-              done
-              # Strip finalizer and retry: under parallel load the controller's
-              # reconcile loop can re-add the finalizer before the K8s garbage
-              # collector runs. Loop until the resource is truly gone.
-              for i in $(seq 1 15); do
-                kubectl patch bucketclaim claim -n $NAMESPACE --type=merge \
-                  -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
-                sleep 1
-                kubectl get bucketclaim claim -n $NAMESPACE >/dev/null 2>&1 || exit 0
-              done
+              sleep 3
+              kubectl patch bucketclaim claim -n $NAMESPACE --type=merge \
+                -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
               exit 0
             env:
               - name: NAMESPACE

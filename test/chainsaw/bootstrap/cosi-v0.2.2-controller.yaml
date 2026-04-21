@@ -1,0 +1,179 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+  name: container-object-storage-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+  name: container-object-storage-controller-sa
+  namespace: container-object-storage-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+    app.kubernetes.io/version: main
+  name: container-object-storage-controller
+  namespace: container-object-storage-system
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - watch
+  - list
+  - delete
+  - update
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+  name: container-object-storage-controller-role
+rules:
+- apiGroups:
+  - objectstorage.k8s.io
+  resources:
+  - bucketclaims
+  - bucketaccesses
+  - bucketclaims/status
+  - bucketaccesses/status
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - objectstorage.k8s.io
+  resources:
+  - buckets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - create
+  - delete
+- apiGroups:
+  - objectstorage.k8s.io
+  resources:
+  - bucketclasses
+  - bucketaccessclasses
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - list
+  - watch
+  - create
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - serviceaccounts
+  verbs:
+  - list
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+    app.kubernetes.io/version: main
+  name: container-object-storage-controller
+  namespace: container-object-storage-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: container-object-storage-controller
+subjects:
+- kind: ServiceAccount
+  name: container-object-storage-controller-sa
+  namespace: container-object-storage-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+    app.kubernetes.io/version: main
+  name: container-object-storage-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: container-object-storage-controller-role
+subjects:
+- kind: ServiceAccount
+  name: container-object-storage-controller-sa
+  namespace: container-object-storage-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: container-object-storage-interface-controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: container-object-storage-interface-controller
+    app.kubernetes.io/part-of: container-object-storage-interface
+  name: container-object-storage-controller
+  namespace: container-object-storage-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: container-object-storage-interface-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: container-object-storage-interface-controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/name: container-object-storage-interface-controller
+        app.kubernetes.io/part-of: container-object-storage-interface
+    spec:
+      containers:
+      - args:
+        - --v=5
+        image: gcr.io/k8s-staging-sig-storage/objectstorage-controller:v20250905-controllerv0.2.0-rc1-100-gd904c62
+        name: objectstorage-controller
+      serviceAccountName: container-object-storage-controller-sa

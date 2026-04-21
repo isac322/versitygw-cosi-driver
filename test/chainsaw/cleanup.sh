@@ -71,8 +71,8 @@ case "$MODE" in
       # controller. Exit status is intentionally not propagated so
       # cleanup still runs — stripping with a dead controller is strictly
       # better than leaving orphans for the next test.
-      kubectl rollout status "deployment/$DRIVER_DEPLOY" -n "$DRIVER_NS" --timeout=60s \
-        || echo "cleanup.sh: rollout status for $DRIVER_NS/$DRIVER_DEPLOY did not become Available within 60s; proceeding anyway" >&2
+      kubectl rollout status "deployment/$DRIVER_DEPLOY" -n "$DRIVER_NS" --timeout=30s \
+        || echo "cleanup.sh: rollout status for $DRIVER_NS/$DRIVER_DEPLOY did not become Available within 30s; proceeding anyway" >&2
     else
       found=0
       for pair in \
@@ -81,8 +81,8 @@ case "$MODE" in
         set -- $pair
         if kubectl get deployment "$2" -n "$1" >/dev/null 2>&1; then
           found=1
-          kubectl rollout status "deployment/$2" -n "$1" --timeout=60s \
-            || echo "cleanup.sh: rollout status for $1/$2 did not become Available within 60s; proceeding anyway" >&2
+          kubectl rollout status "deployment/$2" -n "$1" --timeout=30s \
+            || echo "cleanup.sh: rollout status for $1/$2 did not become Available within 30s; proceeding anyway" >&2
         fi
       done
       if [ "$found" -eq 0 ]; then
@@ -109,12 +109,11 @@ kubectl delete bucketclaim --all -n "$NS" --wait=false --ignore-not-found 2>/dev
 # Under parallel load the controller re-adds finalizers on reconcile,
 # so a single pass loses this race.
 #
-# We require at least 5 iterations before allowing the early-exit
-# path, because the controller may create a Bucket CRD lazily (e.g.,
-# after the test's BucketClaim deletion request has already been
-# observed). If we break too early, the Bucket arrives after cleanup
-# exits and lingers in the cluster as an orphan.
-MIN_ITERS=5
+# We require at least 2 iterations before allowing the early-exit path
+# so late-arriving Bucket CRDs (created after the BucketClaim deletion
+# was observed) are still caught. The loop tops out at 15 iterations,
+# which is the real backstop when the controller keeps racing.
+MIN_ITERS=2
 for i in $(seq 1 15); do
   # Cluster-scoped Bucket: strip finalizer + explicit delete. Bucket CRDs
   # carry bucketClaim.namespace to identify ownership.

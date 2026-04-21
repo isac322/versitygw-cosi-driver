@@ -7,14 +7,16 @@ spec:
   # --full-name); they are not fields of the v1alpha2 Configuration schema
   # in chainsaw v0.2.14.
   #
-  # Timeouts tuned for COSI v0.2.2 under parallel load. The controller has
-  # race conditions and finalizer processing is slow when many claims/accesses
-  # are created concurrently; generous per-step timeouts let individual
-  # reconciles win without cascading failures.
+  # Timeouts sized around observed COSI v0.2.2 happy-path latency: most
+  # asserts resolve in <30s and cleanup in <20s. Asserts stay at 3m because
+  # the recovery tests' post-restart `new-provisioning-works-after-restart`
+  # step has been measured at 120-130s locally (cold-path reconcile after
+  # driver restart). The other budgets are tightened from the previous
+  # 2m/3m blanket so stuck non-assert steps surface within ~1 minute.
   timeouts:
     apply: 30s
     assert: 3m
-    error: 2m
-    delete: 2m
-    cleanup: 3m
-    exec: 2m
+    error: 60s
+    delete: 60s
+    cleanup: 90s
+    exec: 60s
