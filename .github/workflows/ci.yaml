@@ -123,7 +123,7 @@ jobs:
         uses: azure/setup-kubectl@v5
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install Chainsaw
         run: make install-chainsaw
@@ -180,7 +180,7 @@ jobs:
         uses: azure/setup-kubectl@v5
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install Chainsaw
         run: make install-chainsaw
