@@ -11,7 +11,7 @@ Declarative end-to-end tests for the VersityGW COSI driver, structured around th
 - `kubectl`
 - `helm`
 - `curl`
-- `chainsaw` v0.2.14 (installed automatically by `make install-chainsaw`)
+- `chainsaw` v0.2.15 (installed automatically by `make install-chainsaw`)
 
 On Arch/Manjaro with rootless Docker:
 

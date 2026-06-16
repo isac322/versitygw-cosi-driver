@@ -5,7 +5,7 @@ metadata:
 spec:
   # Parallelism and full-name display are passed via CLI flags (--parallel,
   # --full-name); they are not fields of the v1alpha2 Configuration schema
-  # in chainsaw v0.2.14.
+  # in chainsaw v0.2.15.
   #
   # Timeouts sized around observed COSI v0.2.2 happy-path latency: most
   # asserts resolve in <30s and cleanup in <20s. Asserts stay at 3m because
