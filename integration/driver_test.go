@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	cosi "sigs.k8s.io/container-object-storage-interface-spec"
+	cosi "sigs.k8s.io/container-object-storage-interface/proto"
 
 	"github.com/isac322/versitygw-cosi-driver/integration/testutil"
 	"github.com/isac322/versitygw-cosi-driver/internal/driver"

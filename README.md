@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/isac322/versitygw-cosi-driver)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/isac322/versitygw-cosi-driver?filter=app-*)](https://github.com/isac322/versitygw-cosi-driver/releases)
 
-[COSI](https://github.com/kubernetes-sigs/container-object-storage-interface-spec) (Container Object Storage Interface) is the Kubernetes-native way to manage object storage. It defines custom resources (`BucketClaim`, `BucketAccess`) that let you create S3 buckets and provision scoped credentials through plain YAML, the same way you'd use a `PersistentVolumeClaim` for block storage.
+[COSI](https://github.com/kubernetes-sigs/container-object-storage-interface) (Container Object Storage Interface) is the Kubernetes-native way to manage object storage. It defines custom resources (`BucketClaim`, `BucketAccess`) that let you create S3 buckets and provision scoped credentials through plain YAML, the same way you'd use a `PersistentVolumeClaim` for block storage.
 
 This driver implements COSI for [VersityGW](https://github.com/versity/versitygw), an open-source S3-compatible gateway that can front POSIX filesystems, Ceph, and other backends. If you're running VersityGW and want to manage buckets and per-app credentials through Kubernetes CRs instead of scripts or Terraform, this is the glue.
 
@@ -199,7 +199,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and PR gu
 ## Related Projects
 
 - [VersityGW](https://github.com/versity/versitygw) - S3-compatible gateway for POSIX, Ceph, and other backends
-- [COSI Specification](https://github.com/kubernetes-sigs/container-object-storage-interface-spec) - Container Object Storage Interface spec
+- [COSI Specification](https://github.com/kubernetes-sigs/container-object-storage-interface/tree/master/proto) - Container Object Storage Interface spec (proto)
 - [COSI Controller](https://github.com/kubernetes-sigs/container-object-storage-interface) - Reference COSI controller
 
 ## Adopters

@@ -13,7 +13,7 @@ import (
 	_ "github.com/KimMachineGun/automemlimit"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
-	cosi "sigs.k8s.io/container-object-storage-interface-spec"
+	cosi "sigs.k8s.io/container-object-storage-interface/proto"
 
 	"github.com/isac322/versitygw-cosi-driver/internal/config"
 	"github.com/isac322/versitygw-cosi-driver/internal/driver"

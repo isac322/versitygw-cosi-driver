@@ -56,6 +56,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This prevents a stale local binary - or any developer/CI-configured
   GOBIN - from silently masking the version under test. Go's build
   cache makes the install near-instant once cached.
+- Migrated the COSI gRPC type module from the archived
+  `sigs.k8s.io/container-object-storage-interface-spec v0.1.0`
+  (kubernetes-retired) to the kubernetes-sigs monorepo sub-module
+  `sigs.k8s.io/container-object-storage-interface/proto v0.2.2`. The
+  generated Go package name (`cosi`), service descriptors
+  (`cosi.v1alpha1.Identity`, `cosi.v1alpha1.Provisioner`), and every
+  message / enum consumed by this driver (`DriverCreateBucketRequest`,
+  `Protocol_S3`, `S3SignatureVersion_S3V4`, `AuthenticationType_Key`,
+  ...) are wire-compatible for the methods and fields this driver
+  touches (same proto service descriptors, message types, and field
+  numbers; only the generated Go boilerplate differs as expected for
+  a newer protoc-gen-go). The gRPC wire protocol toward upstream COSI
+  controllers is unchanged.
+- Embedded `cosi.UnimplementedIdentityServer` and
+  `cosi.UnimplementedProvisionerServer` in `IdentityServer` and
+  `ProvisionerServer` to satisfy the forward-compatible
+  `mustEmbedUnimplementedXxxServer` pattern introduced by the
+  protoc-gen-go used to regenerate v0.2.2. The embed only contributes
+  a marker method and stub RPCs (immediately shadowed by the concrete
+  implementations); no behavior change.
+- Replaced links pointing at the archived
+  `container-object-storage-interface-spec` repository with links to
+  the active monorepo, across the root README, the Helm chart README,
+  and the Test Strategy doc. The dev.to article snapshot at
+  `marketing/devto/001-cosi-tutorial.md` is intentionally left
+  unchanged - it is a published-post archive, not active
+  documentation.
 
 ## [0.4.0] - 2026-04-21
 

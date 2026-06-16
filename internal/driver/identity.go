@@ -4,11 +4,13 @@ package driver
 import (
 	"context"
 
-	cosi "sigs.k8s.io/container-object-storage-interface-spec"
+	cosi "sigs.k8s.io/container-object-storage-interface/proto"
 )
 
 // IdentityServer implements the COSI IdentityServer interface.
 type IdentityServer struct {
+	cosi.UnimplementedIdentityServer
+
 	driverName string
 }
 

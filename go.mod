@@ -14,7 +14,7 @@ require (
 	github.com/versity/versitygw v1.5.0
 	google.golang.org/grpc v1.81.1
 	k8s.io/klog/v2 v2.140.0
-	sigs.k8s.io/container-object-storage-interface-spec v0.1.0
+	sigs.k8s.io/container-object-storage-interface/proto v0.2.2
 )
 
 require (
@@ -40,7 +40,6 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.13 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/gofiber/fiber/v2 v2.52.13 // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
