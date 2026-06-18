@@ -13,7 +13,7 @@ import (
 	"github.com/versity/versitygw/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	cosi "sigs.k8s.io/container-object-storage-interface-spec"
+	cosi "sigs.k8s.io/container-object-storage-interface/proto"
 
 	"github.com/isac322/versitygw-cosi-driver/internal/versitygw"
 )

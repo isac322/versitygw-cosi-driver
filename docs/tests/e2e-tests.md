@@ -51,7 +51,7 @@ test/chainsaw/
 ## Running
 
 ```bash
-# Requires: docker, kind, kubectl, helm, curl, chainsaw v0.2.14
+# Requires: docker, kind, kubectl, helm, curl, chainsaw v0.2.15
 # (chainsaw installed via `make install-chainsaw`)
 
 # One-shot (setup + parallel suite + recovery suite + teardown)

@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fisac322%2Fversitygw-cosi-driver%2Fmaster%2Fdeploy%2Fhelm%2Fversitygw-cosi-driver%2FChart.yaml&query=%24.version&label=Chart&color=blue)
 ![AppVersion](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fisac322%2Fversitygw-cosi-driver%2Fmaster%2Fdeploy%2Fhelm%2Fversitygw-cosi-driver%2FChart.yaml&query=%24.appVersion&label=App&color=green)
 
-Helm chart for the [VersityGW COSI Driver](https://github.com/isac322/versitygw-cosi-driver). Deploys a [COSI](https://github.com/kubernetes-sigs/container-object-storage-interface-spec) driver that manages S3 buckets and per-app credentials on [VersityGW](https://github.com/versity/versitygw) through Kubernetes custom resources (`BucketClaim`, `BucketAccess`).
+Helm chart for the [VersityGW COSI Driver](https://github.com/isac322/versitygw-cosi-driver). Deploys a [COSI](https://github.com/kubernetes-sigs/container-object-storage-interface) driver that manages S3 buckets and per-app credentials on [VersityGW](https://github.com/versity/versitygw) through Kubernetes custom resources (`BucketClaim`, `BucketAccess`).
 
 See the [project README](https://github.com/isac322/versitygw-cosi-driver) for architecture, features, and troubleshooting.
 

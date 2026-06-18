@@ -13,13 +13,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
-	cosi "sigs.k8s.io/container-object-storage-interface-spec"
+	cosi "sigs.k8s.io/container-object-storage-interface/proto"
 
 	"github.com/isac322/versitygw-cosi-driver/internal/versitygw"
 )
 
 // ProvisionerServer implements the COSI ProvisionerServer interface.
 type ProvisionerServer struct {
+	cosi.UnimplementedProvisionerServer
+
 	client     *versitygw.Client
 	s3Endpoint string // S3 endpoint returned in credentials for bucket consumers
 	region     string

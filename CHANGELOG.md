@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `github.com/versity/versitygw` from v1.4.1 to v1.5.0. The
+  `auth` package exports consumed by this driver (`Account`,
+  `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
+  `ErrNoSuchUser`) are unchanged; the "global error refactoring" in
+  the v1.5.0 changelog is internal to versitygw. Admin API routes used
+  by the driver (`create-user`, `delete-user`, `list-users`) and S3
+  `PutBucketPolicy` are wire-compatible.
+- Pinned versitygw to v1.5.0 in integration tests
+  (`integration/testmain_test.go`) and Chainsaw E2E bootstrap
+  (`test/chainsaw/bootstrap/versitygw.yaml`).
+- Updated README compatibility row to `VersityGW | 1.5.x`.
+- Refreshed every module explicitly required by `go.mod` (direct and
+  indirect `require` entries) to its current minor/patch via
+  `go get -u ./...`, a targeted `go get github.com/rogpeppe/go-internal@v1.15.0`,
+  and `go mod tidy`. Verified by intersecting the update candidates
+  from `go list -m -u -mod=readonly all` with the module paths
+  explicitly listed in `go.mod`'s `require` blocks; the intersection
+  is empty. Deeper transitives that are not explicitly required from
+  this `go.mod` cannot be pinned without adding artificial top-level
+  requirements for modules this driver does not directly use, so
+  they were left as resolved by the dependency graph.
+
+  Notable jumps: `aws-sdk-go-v2` v1.41.6→v1.42.0 (service/s3
+  v1.100.0→v1.103.3), `aws/smithy-go` 1.25.1→1.27.2,
+  `google.golang.org/grpc` 1.80.0→1.81.1,
+  `google.golang.org/genproto` promoted from the legacy 2020 stub to
+  the current cut to resolve an `rpc/status` ambiguous-import
+  collision with `google.golang.org/genproto/googleapis/rpc`,
+  `valyala/fasthttp` 1.70.0→1.71.0 (aligns with the versitygw v1.5.0
+  compatibility note), `golang.org/x/{crypto,net,sys,text}` all to
+  current.
+- Bumped the Chainsaw E2E test tool pin in the `Makefile` from
+  v0.2.14 to v0.2.15 (latest upstream), and updated the active
+  Chainsaw references in `test/chainsaw/chainsaw-config.yaml`,
+  `test/chainsaw/README.md`, and `docs/tests/e2e-tests.md`.
+  `docs/plans/chainsaw-migration-plan.md` is left at v0.2.14
+  intentionally - it is a historical migration-plan snapshot,
+  not an active runtime reference.
+- Bumped indirect `github.com/rogpeppe/go-internal` from v1.14.1
+  to v1.15.0.
+- `integration/testmain_test.go` now installs the pinned versitygw
+  (`versityGWVersion = "v1.5.0"`) into a per-run temporary GOBIN
+  and prepends it to PATH before running the suite, replacing the
+  previous "skip install if any `versitygw` is on PATH" behavior.
+  This prevents a stale local binary - or any developer/CI-configured
+  GOBIN - from silently masking the version under test. Go's build
+  cache makes the install near-instant once cached.
+- Migrated the COSI gRPC type module from the archived
+  `sigs.k8s.io/container-object-storage-interface-spec v0.1.0`
+  (kubernetes-retired) to the kubernetes-sigs monorepo sub-module
+  `sigs.k8s.io/container-object-storage-interface/proto v0.2.2`. The
+  generated Go package name (`cosi`), service descriptors
+  (`cosi.v1alpha1.Identity`, `cosi.v1alpha1.Provisioner`), and every
+  message / enum consumed by this driver (`DriverCreateBucketRequest`,
+  `Protocol_S3`, `S3SignatureVersion_S3V4`, `AuthenticationType_Key`,
+  ...) are wire-compatible for the methods and fields this driver
+  touches (same proto service descriptors, message types, and field
+  numbers; only the generated Go boilerplate differs as expected for
+  a newer protoc-gen-go). The gRPC wire protocol toward upstream COSI
+  controllers is unchanged.
+- Embedded `cosi.UnimplementedIdentityServer` and
+  `cosi.UnimplementedProvisionerServer` in `IdentityServer` and
+  `ProvisionerServer` to satisfy the forward-compatible
+  `mustEmbedUnimplementedXxxServer` pattern introduced by the
+  protoc-gen-go used to regenerate v0.2.2. The embed only contributes
+  a marker method and stub RPCs (immediately shadowed by the concrete
+  implementations); no behavior change.
+- Replaced links pointing at the archived
+  `container-object-storage-interface-spec` repository with links to
+  the active monorepo, across the root README, the Helm chart README,
+  and the Test Strategy doc. The dev.to article snapshot at
+  `marketing/devto/001-cosi-tutorial.md` is intentionally left
+  unchanged - it is a published-post archive, not active
+  documentation.
+
 ## [0.4.0] - 2026-04-21
 
 ### Added

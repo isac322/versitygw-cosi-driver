@@ -36,7 +36,7 @@ Additionally, every layer provides regression safety for new features and bug fi
 
 ## COSI Spec Version
 
-This project implements **COSI v1alpha1** (`sigs.k8s.io/container-object-storage-interface-spec v0.1.0`).
+This project implements **COSI v1alpha1** (`sigs.k8s.io/container-object-storage-interface/proto v0.2.2`).
 
 ### RPCs Under Test
 

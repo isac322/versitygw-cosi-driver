@@ -6,7 +6,7 @@
 BINARY  := versitygw-cosi-driver
 IMAGE   := versitygw-cosi-driver:latest
 
-CHAINSAW_VERSION := v0.2.14
+CHAINSAW_VERSION := v0.2.15
 CHAINSAW_URL := https://github.com/kyverno/chainsaw/releases/download/$(CHAINSAW_VERSION)/chainsaw_linux_amd64.tar.gz
 
 build:
