@@ -68,7 +68,7 @@ helm install versitygw-cosi-driver \
 #### Kustomize
 
 ```bash
-kubectl apply -k 'https://github.com/isac322/versitygw-cosi-driver/deploy/kustomize/default/?ref=app-v0.3.0'
+kubectl apply -k 'https://github.com/isac322/versitygw-cosi-driver/deploy/kustomize/default/?ref=app-v0.5.0'
 ```
 
 ### 4. Create a Bucket

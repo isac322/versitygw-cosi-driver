@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-18
+
 ### Changed
 
 - Bumped `github.com/versity/versitygw` from v1.4.1 to v1.5.0. The
@@ -32,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they were left as resolved by the dependency graph.
 
   Notable jumps: `aws-sdk-go-v2` v1.41.6→v1.42.0 (service/s3
-  v1.100.0→v1.103.3), `aws/smithy-go` 1.25.1→1.27.2,
+  v1.100.0→v1.104.0), `aws/smithy-go` 1.25.1→1.27.2,
   `google.golang.org/grpc` 1.80.0→1.81.1,
   `google.golang.org/genproto` promoted from the legacy 2020 stub to
   the current cut to resolve an `rpc/status` ambiguous-import
@@ -293,7 +295,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD pipeline with container image and Helm chart releases.
 - Dockerfile with multi-stage build and security hardening.
 
-[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.4.0...HEAD
+[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.5.0...HEAD
+[0.5.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.4.0...app-v0.5.0
 [0.4.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.3.0...app-v0.4.0
 [0.3.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.2.0...app-v0.3.0
 [0.2.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.1.0...app-v0.2.0
