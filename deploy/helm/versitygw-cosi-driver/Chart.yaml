@@ -2,8 +2,8 @@ apiVersion: v2
 name: versitygw-cosi-driver
 description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.3.7
-appVersion: "0.4.0"
+version: 0.5.0
+appVersion: "0.5.0"
 keywords:
   - cosi
   - s3
@@ -20,4 +20,4 @@ annotations:
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
     - kind: changed
-      description: Synced appVersion to app v0.4.0 — Chainsaw-based E2E validation, stricter BucketClaim parameter handling, and verified VersityGW v1.4.0 compatibility
+      description: Synced appVersion to app v0.5.0 — VersityGW compatibility window narrowed to 1.5.x, COSI gRPC types migrated to the active kubernetes-sigs monorepo (proto v0.2.2), all go.mod-required modules refreshed to current
