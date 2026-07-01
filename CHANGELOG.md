@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-01
+
 ### Changed
 
 - Bumped `github.com/versity/versitygw` from v1.5.0 to v1.6.0. The
