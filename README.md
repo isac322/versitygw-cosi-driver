@@ -26,7 +26,7 @@ The driver talks to VersityGW over two APIs: the standard S3 API for bucket oper
 |-----------|----------|
 | Kubernetes | 1.25+ (COSI requires 1.25) |
 | COSI Controller | v0.2.x |
-| VersityGW | 1.5.x (IAM and Admin API must be enabled) |
+| VersityGW | 1.0.8+ (IAM and Admin API must be enabled; integration-tested against 1.6.x) |
 | Helm | 3.x |
 
 ## Quick Start

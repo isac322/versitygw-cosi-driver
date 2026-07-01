@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `github.com/versity/versitygw` from v1.5.0 to v1.6.0. The
+  `auth` package exports consumed by this driver (`Account`,
+  `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
+  `ErrNoSuchUser`) are unchanged between v1.5.0 and v1.6.0. The v1.6.0
+  release migrates internal HTTP routing from Fiber v2 to v3 and adds
+  static website hosting; both are scoped to `s3api/` and
+  `cmd/versitygw/`, neither of which the driver imports. Admin API
+  routes used by the driver (`create-user`, `delete-user`,
+  `list-users`, `change-bucket-owner`, `list-buckets`) and the CLI
+  flags exercised by the integration harness (`--access`, `--secret`,
+  `--port`, `--admin-port`, `--iam-dir`, `posix`) remain unchanged.
+- Also bumped indirect `aws-sdk-go-v2/feature/s3/transfermanager`
+  v0.2.10 → v0.2.11, pulled in by the versitygw v1.6.0 upgrade.
+- Pinned versitygw to v1.6.0 in integration tests
+  (`integration/testmain_test.go`) and Chainsaw E2E bootstrap
+  (`test/chainsaw/bootstrap/versitygw.yaml`).
+- Widened the README compatibility row from `VersityGW | 1.5.x` to
+  `VersityGW | 1.0.8+ (integration-tested against 1.6.x)`. Verified by
+  compiling a minimal consumer that exercises every symbol the driver
+  imports from `versitygw/auth` against every published tag from
+  v1.0.0 to v1.6.0. v1.0.0–v1.0.7 fail because
+  `auth.ListUserAccountsResult` was introduced in v1.0.8; v1.0.8 and
+  every subsequent release keep the Go symbol set, admin API routes
+  (`/create-user`, `/delete-user`, `/list-users`,
+  `/change-bucket-owner`, `/list-buckets`), and CLI flags (`--access`,
+  `--secret`, `--port`, `--admin-port`, `--iam-dir`, `posix`) that the
+  driver depends on. Later additions such as `OPTIONS` handlers for
+  admin routes (v1.1.0) and the `ProjectID` field on `auth.Account`
+  (v1.5.0) are purely additive and do not affect the driver.
+
 ## [0.5.0] - 2026-06-18
 
 ### Changed
