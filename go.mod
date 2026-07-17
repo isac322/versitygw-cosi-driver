@@ -5,13 +5,13 @@ go 1.26.1
 require (
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/aws/aws-sdk-go-v2 v1.42.1
-	github.com/aws/aws-sdk-go-v2/config v1.32.25
+	github.com/aws/aws-sdk-go-v2/config v1.32.30
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.29
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.2
 	github.com/aws/smithy-go v1.27.3
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
-	github.com/versity/versitygw v1.6.0
+	github.com/versity/versitygw v1.7.0
 	google.golang.org/grpc v1.82.1
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/container-object-storage-interface/proto v0.2.2
@@ -19,10 +19,10 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.1.1 // indirect
-	github.com/andybalholm/brotli v1.2.1 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.14 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.30 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.2.11 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.3.2 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.31 // indirect
@@ -38,15 +38,15 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.13 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
-	github.com/gofiber/fiber/v3 v3.3.0 // indirect
-	github.com/gofiber/schema v1.8.0 // indirect
-	github.com/gofiber/utils/v2 v2.1.0 // indirect
+	github.com/gofiber/fiber/v3 v3.4.0 // indirect
+	github.com/gofiber/schema v1.8.2 // indirect
+	github.com/gofiber/utils/v2 v2.1.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/vault-client-go v0.4.3 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.19.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
@@ -58,11 +58,11 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.71.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	github.com/valyala/fasthttp v1.72.0 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260615183401-62b3387ff324 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
