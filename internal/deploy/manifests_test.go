@@ -62,13 +62,21 @@ func TestHelmSchema_allowsKnownCOSIAuthenticationTypeNames(t *testing.T) {
 	content := readRepoFile(t, "deploy/helm/versitygw-cosi-driver/values.schema.json")
 
 	authenticationTypes := extractHelmSchemaAuthenticationTypes(t, content)
-	require.Contains(t, authenticationTypes, "Key")
-	require.NotContains(t, authenticationTypes, "KEY")
+	require.Equal(t, []string{"Key"}, authenticationTypes)
 
 	for _, authenticationType := range authenticationTypes {
 		got := resolveAuthenticationType(t, authenticationType)
 		require.NotEqual(t, cosi.AuthenticationType_UnknownAuthenticationType, got)
 	}
+}
+
+func TestKustomizeBase_usesCurrentDriverImage(t *testing.T) {
+	t.Parallel()
+
+	content := readRepoFile(t, "deploy/kustomize/base/deployment.yaml")
+
+	require.Contains(t, content, "image: ghcr.io/isac322/versitygw-cosi-driver:0.5.1")
+	require.NotContains(t, content, "image: ghcr.io/isac322/versitygw-cosi-driver:0.2.0")
 }
 
 func readRepoFile(t *testing.T, relativePath string) string {
