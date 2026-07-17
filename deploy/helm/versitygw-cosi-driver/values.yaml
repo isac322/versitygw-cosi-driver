@@ -87,7 +87,7 @@ bucketClass:
 bucketAccessClass:
   create: true
   name: ""
-  authenticationType: KEY
+  authenticationType: Key
   parameters: {}
 
 podSecurityContext:

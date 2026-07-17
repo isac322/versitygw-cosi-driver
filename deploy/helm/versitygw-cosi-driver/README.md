@@ -90,7 +90,7 @@ This does not delete BucketClass, BucketAccessClass, or any provisioned Bucket/B
 | `bucketClass.deletionPolicy` | string | `Delete` | Bucket deletion policy |
 | `bucketAccessClass.create` | bool | `true` | Create a default BucketAccessClass |
 | `bucketAccessClass.name` | string | `""` | BucketAccessClass name (defaults to `versitygw`) |
-| `bucketAccessClass.authenticationType` | string | `KEY` | Authentication type |
+| `bucketAccessClass.authenticationType` | string | `Key` | Authentication type |
 | `podSecurityContext` | object | see `values.yaml` | Pod-level security context |
 | `nodeSelector` | object | `{}` | Node selector |
 | `tolerations` | list | `[]` | Tolerations |

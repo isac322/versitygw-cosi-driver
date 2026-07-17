@@ -175,7 +175,7 @@
         },
         "authenticationType": {
           "type": "string",
-          "enum": ["KEY", "IAM"]
+          "enum": ["Key", "IAM"]
         },
         "parameters": {
           "type": "object"
