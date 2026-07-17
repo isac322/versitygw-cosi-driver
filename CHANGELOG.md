@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restricted the Helm `bucketAccessClass.authenticationType` schema to `Key`
+  because VersityGW does not support COSI `IAM` authentication, and updated
+  the Kustomize driver image tag from `0.2.0` to `0.5.1`.
 - Corrected `BucketAccessClass.authenticationType` from `KEY` to `Key` in
   Helm values, Helm schema, Helm documentation, and the Kustomize component.
   COSI maps this field case-sensitively, so `KEY` caused

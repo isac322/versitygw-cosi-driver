@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: driver
-          image: ghcr.io/isac322/versitygw-cosi-driver:0.2.0
+          image: ghcr.io/isac322/versitygw-cosi-driver:0.5.1
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -175,7 +175,8 @@
         },
         "authenticationType": {
           "type": "string",
-          "enum": ["Key", "IAM"]
+          "description": "COSI authentication type. VersityGW supports only Key authentication.",
+          "enum": ["Key"]
         },
         "parameters": {
           "type": "object"
