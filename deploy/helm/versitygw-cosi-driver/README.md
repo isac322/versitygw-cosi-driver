@@ -43,6 +43,12 @@ helm install versitygw-cosi-driver \
   --set versitygw.credentials.secretName=versitygw-root-credentials
 ```
 
+## Bucket Names
+
+For dynamic provisioning, a `BucketClaim`'s `metadata.name` is not used as the S3 bucket name. The COSI controller generates the bucket name and stores it in `BucketClaim.status.bucketName`; this driver receives that generated name and creates the VersityGW bucket with it.
+
+If you need a fixed existing bucket name, create the bucket in VersityGW first and set `spec.existingBucketName` on the `BucketClaim`.
+
 ## Uninstalling the Chart
 
 ```bash
