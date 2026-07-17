@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `github.com/versity/versitygw` from v1.6.0 to v1.7.0. The
+  `auth` package exports consumed by this driver (`Account`,
+  `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
+  `ErrNoSuchUser`) remain compatible. The Admin API routes used by the
+  driver (`create-user`, `delete-user`, `list-users`,
+  `change-bucket-owner`, `list-buckets`) and the CLI flags exercised by
+  the integration harness (`--access`, `--secret`, `--port`,
+  `--admin-port`, `--iam-dir`, `posix`) remain unchanged. The v1.7.0
+  release adds POSIX `--default-etag` support, VersityGW chart metadata
+  and versioning-directory options, S3 behavior/security fixes, and LDAP
+  filter hardening; none require driver code changes.
+- Pinned versitygw to v1.7.0 in integration tests
+  (`integration/testmain_test.go`) and Chainsaw E2E bootstrap
+  (`test/chainsaw/bootstrap/versitygw.yaml`).
+- Updated the README compatibility row to state that this driver is
+  integration-tested against VersityGW 1.7.x.
+
 ### Fixed
 
 - Restricted the Helm `bucketAccessClass.authenticationType` schema to `Key`

@@ -10,7 +10,7 @@ import (
 // versityGWVersion is the versitygw release this test suite is written against.
 // Bumping it here drives the binary install and is the single source of truth
 // for which versitygw the integration suite exercises.
-const versityGWVersion = "v1.6.0"
+const versityGWVersion = "v1.7.0"
 
 func TestMain(m *testing.M) {
 	// Install to a per-run temp GOBIN and prepend it to PATH so the pinned
