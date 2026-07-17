@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected `BucketAccessClass.authenticationType` from `KEY` to `Key` in
+  Helm values, Helm schema, Helm documentation, and the Kustomize component.
+  COSI maps this field case-sensitively, so `KEY` caused
+  `UnknownAuthenticationType` during `BucketAccess` grants. Added an
+  `internal/deploy` regression test to keep shipped manifests aligned with
+  COSI enum names. Fixes #60.
+
 ## [0.5.1] - 2026-07-01
 
 ### Changed

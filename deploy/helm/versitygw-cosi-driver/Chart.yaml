@@ -2,7 +2,7 @@ apiVersion: v2
 name: versitygw-cosi-driver
 description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.5.1
+version: 0.5.2
 appVersion: "0.5.1"
 keywords:
   - cosi
@@ -19,5 +19,5 @@ home: https://github.com/isac322/versitygw-cosi-driver
 annotations:
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - kind: changed
-      description: Synced appVersion to app v0.5.1 — bumped versitygw from v1.5.0 to v1.6.0 (auth package exports and admin API routes unchanged; Fiber v2→v3 migration and static website hosting are scoped to versitygw internals the driver does not import); widened the documented VersityGW compatibility window from 1.5.x to 1.0.8+ (integration-tested against 1.6.x) based on a source-level audit against every published versitygw tag.
+    - kind: fixed
+      description: Corrected the default BucketAccessClass authenticationType from KEY to Key in Helm and Kustomize manifests so COSI sidecars map it to the supported Key enum instead of UnknownAuthenticationType.

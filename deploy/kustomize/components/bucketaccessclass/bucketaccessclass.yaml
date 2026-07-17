@@ -5,4 +5,4 @@ metadata:
   labels:
     app.kubernetes.io/name: versitygw-cosi-driver
 driverName: versitygw.cosi.dev
-authenticationType: KEY
+authenticationType: Key
