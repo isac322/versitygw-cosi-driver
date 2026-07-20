@@ -2,7 +2,7 @@ apiVersion: v2
 name: versitygw-cosi-driver
 description: Kubernetes COSI driver for VersityGW — declarative S3 bucket provisioning and access management
 type: application
-version: 0.5.3
+version: 0.5.4
 appVersion: "0.5.1"
 keywords:
   - cosi
@@ -19,5 +19,7 @@ home: https://github.com/isac322/versitygw-cosi-driver
 annotations:
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
+    - kind: fixed
+      description: Decoupled Helm chart packaging version from appVersion so that chart and driver image versions can be managed and bumped independently.
     - kind: fixed
       description: Restricted the Helm BucketAccessClass authenticationType schema to Key because VersityGW does not support COSI IAM authentication, and updated the Kustomize driver image tag from 0.2.0 to 0.5.1.

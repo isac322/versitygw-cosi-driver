@@ -42,8 +42,7 @@ jobs:
         if: steps.check.outputs.exists != 'true'
         run: |
           helm package deploy/helm/versitygw-cosi-driver \
-            --version "${{ steps.chart.outputs.version }}" \
-            --app-version "${{ steps.chart.outputs.version }}"
+            --version "${{ steps.chart.outputs.version }}"
 
       - name: Push Helm chart
         if: steps.check.outputs.exists != 'true'
