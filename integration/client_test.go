@@ -357,7 +357,8 @@ func TestRemoveBucketPolicyLastPrincipal(t *testing.T) {
 }
 
 func containsUser(users []auth.Account, access string) bool {
-	for _, u := range users {
+	for i := range users {
+		u := &users[i]
 		if u.Access == access {
 			return true
 		}
