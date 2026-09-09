@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bumped Go toolchain to 1.27 (updating `go.mod`, `Dockerfile`, and
+  `.golangci.yml`).
+- Upgraded direct dependencies to latest versions:
+  - `github.com/KimMachineGun/automemlimit` from v0.7.5 to v1.0.0
+  - `github.com/aws/aws-sdk-go-v2` from v1.42.1 to v1.46.0
+  - `github.com/aws/aws-sdk-go-v2/config` from v1.32.30 to v1.33.3
+  - `github.com/aws/aws-sdk-go-v2/credentials` from v1.19.29 to v1.20.3
+  - `github.com/aws/aws-sdk-go-v2/service/s3` from v1.105.2 to v1.112.0
+  - `github.com/aws/smithy-go` from v1.27.4 to v1.28.1
+  - `github.com/stretchr/testify` from v1.11.1 to v1.12.1
+  - `google.golang.org/grpc` from v1.82.1 to v1.83.2
+- Upgraded GitHub Actions tooling: `sigstore/cosign-installer` from v3 to v4.
+- Modernized error handling in `internal/driver` and `internal/versitygw`
+  using standard library `errors.AsType`.
 - Bumped `github.com/versity/versitygw` from v1.7.0 to v1.8.0. The
   `auth` package exports consumed by this driver (`Account`,
   `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
