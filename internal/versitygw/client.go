@@ -135,8 +135,7 @@ func (c *Client) CreateBucket(ctx context.Context, name string) error {
 		if errors.As(err, &owned) || errors.As(err, &exists) {
 			return nil
 		}
-		var apiErr smithy.APIError
-		if errors.As(err, &apiErr) {
+		if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 			code := apiErr.ErrorCode()
 			if code == "BucketAlreadyOwnedByYou" || code == "BucketAlreadyExists" {
 				return nil
@@ -154,8 +153,7 @@ func (c *Client) DeleteBucket(ctx context.Context, name string) error {
 	})
 	if err != nil {
 		// Check both typed error and generic API error code
-		var nsk *s3types.NoSuchBucket
-		if errors.As(err, &nsk) {
+		if _, ok := errors.AsType[*s3types.NoSuchBucket](err); ok {
 			return nil
 		}
 		var apiErr smithy.APIError

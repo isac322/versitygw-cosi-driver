@@ -45,8 +45,7 @@ func mapToGRPCError(err error, msg string) error {
 		return status.Errorf(codes.NotFound, "%s: %v", msg, err)
 	}
 
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 		switch apiErr.ErrorCode() {
 		case "BucketAlreadyExists", "BucketAlreadyOwnedByYou":
 			return status.Errorf(codes.AlreadyExists, "%s: %v", msg, err)

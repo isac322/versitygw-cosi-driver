@@ -50,7 +50,7 @@ jobs:
 
       - name: Install cosign
         if: steps.check.outputs.exists != 'true'
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4
 
       - name: Sign Helm chart
         if: steps.check.outputs.exists != 'true'
