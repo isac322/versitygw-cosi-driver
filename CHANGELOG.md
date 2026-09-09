@@ -23,6 +23,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgraded GitHub Actions tooling: `sigstore/cosign-installer` from v3 to v4.
 - Modernized error handling in `internal/driver` and `internal/versitygw`
   using standard library `errors.AsType`.
+- Bumped `github.com/versity/versitygw` from v1.7.0 to v1.8.0. The
+  `auth` package exports consumed by this driver (`Account`,
+  `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
+  `ErrNoSuchUser`) remain compatible. The `Account` struct added internal
+  fields (`SessionToken`, `IsSession`, `Arn`, `RoleArn`) that are omitted
+  from JSON/XML wire serialization, preserving full compatibility with the
+  driver's wire protocol and types. The Admin API routes used by the driver
+  (`create-user`, `delete-user`, `list-users`, `change-bucket-owner`,
+  `list-buckets`) and the CLI flags exercised by the integration harness
+  (`--access`, `--secret`, `--port`, `--admin-port`, `--iam-dir`, `posix`)
+  remain unchanged. The v1.8.0 release introduces an AWS-compatible
+  standalone IAM service, STS web identity federation, and IAM policy
+  Condition support; the COSI driver continues to operate seamlessly
+  against VersityGW in standard S3 gateway mode with IAM enabled.
+- Pinned versitygw to v1.8.0 in integration tests
+  (`integration/testmain_test.go`) and Chainsaw E2E bootstrap
+  (`test/chainsaw/bootstrap/versitygw.yaml`).
+- Updated the README compatibility row to state that this driver is
+  integration-tested against VersityGW 1.8.x.
 - Bumped `github.com/versity/versitygw` from v1.6.0 to v1.7.0. The
   `auth` package exports consumed by this driver (`Account`,
   `ListUserAccountsResult`, `Role`/`RoleUser`, `ErrUserExists`,
