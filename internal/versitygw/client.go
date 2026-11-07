@@ -125,9 +125,16 @@ func NewClientWithRegion(s3Endpoint, adminEndpoint, accessKey, secretKey, region
 
 // CreateBucket creates a new S3 bucket.
 func (c *Client) CreateBucket(ctx context.Context, name string) error {
-	_, err := c.s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
+	input := &s3.CreateBucketInput{
 		Bucket: aws.String(name),
-	})
+	}
+	if c.region != "us-east-1" {
+		input.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{
+			LocationConstraint: s3types.BucketLocationConstraint(c.region),
+		}
+	}
+
+	_, err := c.s3Client.CreateBucket(ctx, input)
 	if err != nil {
 		// Idempotent: bucket already owned by us is OK
 		var owned *s3types.BucketAlreadyOwnedByYou
