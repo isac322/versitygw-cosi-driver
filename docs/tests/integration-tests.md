@@ -440,20 +440,24 @@ These tests validate the complete access granting mechanism: user creation, buck
 
 ### VersityGW Version Compatibility
 
-#### TC-I-070: Version matrix
+#### TC-I-070: Current integration version
 
-- **Given**: CI is configured to run integration tests against multiple VersityGW versions (e.g., latest, latest-1, latest-2)
-- **When**: The entire integration test suite runs against each version
-- **Then**: All tests pass for every supported VersityGW version
+- **Given**: The integration suite installs and uses VersityGW v1.11.0
+- **When**: The entire integration test suite runs
+- **Then**: The suite exercises the driver against VersityGW v1.11.0
 
-**Implementation note:** This is not a single test function but a CI configuration concern. The CI pipeline should parameterize the VersityGW binary version and run the full integration suite for each. The `testutil.StartVersityGW` helper should accept a version parameter or use the VersityGW binary found in PATH.
+**Current configuration:** `integration/testmain_test.go` installs
+`github.com/versity/versitygw/cmd/versitygw@v1.11.0` into a per-run temporary
+`GOBIN` directory and prepends that directory to `PATH`. The integration suite
+therefore uses the v1.11.0 binary rather than an image selected through
+`latest`. This is separate from the Chainsaw bootstrap, which remains
+`versity/versitygw:v1.8.0` because VersityGW v1.11.0 is not published on Docker
+Hub or GHCR.
 
-Example CI matrix:
-```yaml
-strategy:
-  matrix:
-    versitygw-version: ["v1.0.0", "v1.1.0", "v1.2.0", "latest"]
-```
+**Future work:** A multi-version CI matrix is not currently configured. If
+multi-version coverage is added later, each tested VersityGW version should be
+listed explicitly and tested separately. Do not use `latest` as a tested or
+pinned version.
 
 ---
 
