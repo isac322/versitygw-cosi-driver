@@ -397,7 +397,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD pipeline with container image and Helm chart releases.
 - Dockerfile with multi-stage build and security hardening.
 
-[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.6.0...HEAD
+[Unreleased]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.7.0...HEAD
+
+[0.7.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.5.1...app-v0.6.0
 [0.5.1]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.5.0...app-v0.5.1
 [0.5.0]: https://github.com/isac322/versitygw-cosi-driver/compare/app-v0.4.0...app-v0.5.0
