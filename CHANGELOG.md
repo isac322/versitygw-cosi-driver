@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.7.0] - 2026-11-07
-
 ### Changed
 
 - Bumped `github.com/versity/versitygw` from v1.8.0 to v1.11.0. The
   `auth` package exports and Admin API routes consumed by this driver remain
-  compatible.
+  compatible. Bucket creation now sends the configured region for
+  non-`us-east-1` deployments while preserving the default region behavior.
 - Pinned versitygw to v1.11.0 in integration tests
   (`integration/testmain_test.go`).
 - Updated the README and test documentation to distinguish the v1.11.0
@@ -28,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bucket creation now sends the configured region for non-`us-east-1`
   deployments while preserving the default region behavior.
-
 ## [0.6.0] - 2026-09-09
 
 ### Changed
