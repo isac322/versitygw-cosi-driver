@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `github.com/versity/versitygw` from v1.8.0 to v1.11.0. The
+  `auth` package exports and Admin API routes consumed by this driver remain
+  compatible. Bucket creation now sends the configured region for
+  non-`us-east-1` deployments while preserving the default region behavior.
+- Pinned versitygw to v1.11.0 in integration tests
+  (`integration/testmain_test.go`).
+- Updated the README compatibility row to state that this driver is
+  integration-tested against VersityGW 1.11.x.
+- Refreshed module dependency selections and sums required by the VersityGW
+  v1.11.0 dependency graph.
+- The Chainsaw bootstrap remains pinned to v1.8.0 because
+  `versity/versitygw:v1.11.0` is not published in the checked Docker Hub or
+  GHCR registries.
+
 ## [0.6.0] - 2026-09-09
 
 ### Changed

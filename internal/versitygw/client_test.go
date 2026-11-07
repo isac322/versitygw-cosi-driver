@@ -42,6 +42,60 @@ func TestNewClientWithRegion(t *testing.T) {
 	require.Equal(t, "secret", c.creds.SecretAccessKey)
 }
 
+func TestCreateBucketRegionRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		region         string
+		wantBody       bool
+		wantConstraint string
+	}{
+		{
+			name:     "us-east-1_omits_location_constraint",
+			region:   "us-east-1",
+			wantBody: false,
+		},
+		{
+			name:           "non_default_region_includes_location_constraint",
+			region:         "ap-northeast-2",
+			wantBody:       true,
+			wantConstraint: "ap-northeast-2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				gotBody    []byte
+				gotBodyErr error
+			)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotBody, gotBodyErr = io.ReadAll(r.Body)
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(srv.Close)
+
+			c := NewClientWithRegion(srv.URL, srv.URL, "access", "secret", tt.region)
+			require.NoError(t, c.CreateBucket(t.Context(), "test-bucket"))
+			require.NoError(t, gotBodyErr)
+
+			if !tt.wantBody {
+				require.Empty(t, gotBody)
+				return
+			}
+
+			var configuration struct {
+				LocationConstraint string `xml:"LocationConstraint"`
+			}
+			require.NoError(t, xml.Unmarshal(gotBody, &configuration))
+			require.Equal(t, tt.wantConstraint, configuration.LocationConstraint)
+		})
+	}
+}
+
 func TestNewClientWithRegion_TrimsTrailingSlash(t *testing.T) {
 	t.Parallel()
 
