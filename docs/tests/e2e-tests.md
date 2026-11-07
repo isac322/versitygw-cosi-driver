@@ -164,7 +164,12 @@ Serial-only (separate Chainsaw invocation via `make test-e2e-recovery`).
 - **COSI**: v0.2.2 (v1alpha1 APIs). The upstream `main` has moved to
   v1alpha2, which this driver does NOT yet support.
 - **Kubernetes**: whatever `kind` ships with by default (typically latest minor).
-- **VersityGW**: `versity/versitygw:latest` (pulled at test time).
+- **VersityGW (Chainsaw bootstrap)**: `versity/versitygw:v1.8.0`. Chainsaw
+  uses this pinned bootstrap image because VersityGW v1.11.0 is not published
+  on Docker Hub or GHCR.
+- **VersityGW (integration tests)**: v1.11.0. The integration suite separately
+  exercises compatibility with v1.11.0; this is distinct from the v1.8.0
+  Chainsaw bootstrap.
 
 ## Summary
 
